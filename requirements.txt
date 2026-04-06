@@ -2,4 +2,4 @@ fastapi
 uvicorn
 supabase
 requests
-streamlit
+python-dotenv
