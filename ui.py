@@ -8,7 +8,7 @@ import uuid
 
 def is_online():
     try:
-        requests.get("http://127.0.0.1:8000", timeout=2)
+        requests.get("https://vel-finance-api.onrender.com", timeout=2)
         return True
     except:
         return False
@@ -38,7 +38,7 @@ else:
 if page == "Dashboard":
     st.markdown("## 📊 Today Summary")
 
-    res = requests.get("http://127.0.0.1:8000/transactions/daily-summary")
+    res = requests.get("https://vel-finance-api.onrender.com/transactions/daily-summary")
 
     if res.status_code == 200:
         data = res.json()
@@ -50,7 +50,7 @@ if page == "Dashboard":
         # Expense breakdown
         st.markdown("### 🧾 Expense Details")
 
-        res_exp = requests.get("http://127.0.0.1:8000/expenses/today")
+        res_exp = requests.get("https://vel-finance-api.onrender.com/expenses/today")
 
         if res_exp.status_code == 200:
             exp_data = res_exp.json()
@@ -69,7 +69,7 @@ if page == "Dashboard":
     # Not paid today
     st.markdown("### ⚠️ Not Paid Today")
 
-    res = requests.get("http://127.0.0.1:8000/customers/not-paid-today")
+    res = requests.get("https://vel-finance-api.onrender.com/customers/not-paid-today")
 
     if res.status_code == 200:
         data = res.json()
@@ -85,7 +85,7 @@ if page == "Dashboard":
     # Gap tracking
     st.markdown("### 🚨 Not Paid for 3+ Days")
 
-    res = requests.get("http://127.0.0.1:8000/customers/payment-gaps")
+    res = requests.get("https://vel-finance-api.onrender.com/customers/payment-gaps")
 
     if res.status_code == 200:
         gap_data = res.json()
@@ -127,7 +127,7 @@ if page == "Dashboard":
 
                     try:
                         res = requests.post(
-                            "http://127.0.0.1:8000/transactions/add",
+                            "https://vel-finance-api.onrender.com/transactions/add",
                             json=entry,
                             timeout=5
                         )
@@ -208,7 +208,7 @@ if page == "Add Expense":
             st.warning("Enter valid data")
         else:
             res = requests.post(
-                "http://127.0.0.1:8000/expenses/add",
+                "https://vel-finance-api.onrender.com/expenses/add",
                 json={
                     "amount": int(amount),
                     "note": note,
@@ -227,7 +227,7 @@ if page == "Add Expense":
 if page == "View Customer":
     st.markdown("## 🔍 Customer Details")
 
-    res = requests.get("http://127.0.0.1:8000/customers/")
+    res = requests.get("https://vel-finance-api.onrender.com/customers/")
 
     if res.status_code != 200:
         st.error("Error")
@@ -246,7 +246,7 @@ if page == "View Customer":
         cid = options[selected]
 
         res = requests.get(
-            f"http://127.0.0.1:8000/transactions/customer/{cid}"
+            f"https://vel-finance-api.onrender.com/transactions/customer/{cid}"
         )
 
         if res.status_code == 200:
@@ -338,7 +338,7 @@ if page == "Add Customer":
                     st.stop()
 
                 res = requests.post(
-                    "http://127.0.0.1:8000/customers/add",
+                    "https://vel-finance-api.onrender.com/customers/add",
                     json={
                     "customer_id": int(customer_id),
                     "name": name,
