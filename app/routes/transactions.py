@@ -84,35 +84,46 @@ def get_customer_balance(customer_id: int):
 
 @router.get("/daily-summary")
 def get_daily_summary():
-
     from datetime import date
 
     today = date.today().isoformat()
 
-    # 1. Get today's transactions
-    t_res = supabase.table("transactions") \
-        .select("*") \
-        .eq("payment_date", today) \
-        .execute()
+    try:
+        # 1. Get today's transactions
+        t_res = supabase.table("transactions") \
+            .select("*") \
+            .eq("payment_date", today) \
+            .execute()
 
-    transactions = t_res.data
-    total_collected = sum(t["amount_paid"] for t in transactions)
+        transactions = t_res.data if t_res.data else []
 
-    # 2. Get today's expenses
-    e_res = supabase.table("expenses") \
-        .select("*") \
-        .eq("date", today) \
-        .execute()
+        total_collected = sum(
+            t.get("amount_paid", 0) for t in transactions
+        )
 
-    expenses = e_res.data
-    total_expense = sum(e["amount"] for e in expenses)
+        # 2. Get today's expenses
+        e_res = supabase.table("expenses") \
+            .select("*") \
+            .eq("date", today) \
+            .execute()
 
-    # 3. Calculate net
-    net_amount = total_collected - total_expense
+        expenses = e_res.data if e_res.data else []
 
-    return {
-        "date": today,
-        "total_collected": total_collected,
-        "total_expense": total_expense,
-        "net_amount": net_amount
-    }
+        total_expense = sum(
+            e.get("amount", 0) for e in expenses
+        )
+
+        # 3. Calculate net
+        net_amount = total_collected - total_expense
+
+        return {
+            "date": today,
+            "total_collected": total_collected,
+            "total_expense": total_expense,
+            "net_amount": net_amount
+        }
+
+    except Exception as e:
+        return {
+            "error": str(e)
+        }

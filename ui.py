@@ -180,33 +180,24 @@ if page == "Add Payment":
 
                     if res.status_code == 200:
                         st.success("✅ Payment added online")
-                        st.rerun()
+                        return  # ✅ FIX
+
                     else:
-                        raise Exception("API failed")
+                        st.warning("⚠️ API failed, saving offline")
 
                 except:
                     st.warning("⚠️ Backend not responding, saving offline")
 
-                    with open(LOCAL_FILE, "r") as f:
-                        data = json.load(f)
+            # ✅ ONLY runs if failed
+            with open(LOCAL_FILE, "r") as f:
+                data = json.load(f)
 
-                    data.append(new_entry)
+            data.append(new_entry)
 
-                    with open(LOCAL_FILE, "w") as f:
-                        json.dump(data, f)
+            with open(LOCAL_FILE, "w") as f:
+                json.dump(data, f)
 
-                    st.success("📥 Saved Offline")
-
-            else:
-                with open(LOCAL_FILE, "r") as f:
-                    data = json.load(f)
-
-                data.append(new_entry)
-
-                with open(LOCAL_FILE, "w") as f:
-                    json.dump(data, f)
-
-                st.success("📥 Saved Offline (No Internet)")
+            st.success("📥 Saved Offline")
 
 # ================= ADD EXPENSE =================
 if page == "Add Expense":
