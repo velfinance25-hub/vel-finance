@@ -116,11 +116,32 @@ def get_daily_summary():
         # 3. Calculate net
         net_amount = total_collected - total_expense
 
+        # ✅ 4. Total Outstanding (Money with customers)
+        cust_res = supabase.table("customers").select("*").execute()
+        customers = cust_res.data if cust_res.data else []
+
+        total_outstanding = 0
+
+        for c in customers:
+            txn_res = supabase.table("transactions") \
+                .select("*") \
+                .eq("customer_id", c["customer_id"]) \
+                .execute()
+
+            txns = txn_res.data if txn_res.data else []
+
+            paid = sum(t.get("amount_paid", 0) for t in txns)
+            balance = c.get("net_given", 0) - paid
+
+            total_outstanding += balance
+
+        # ✅ FINAL RETURN (ALL VALUES)
         return {
             "date": today,
             "total_collected": total_collected,
             "total_expense": total_expense,
-            "net_amount": net_amount
+            "net_amount": net_amount,
+            "total_outstanding": total_outstanding
         }
 
     except Exception as e:
