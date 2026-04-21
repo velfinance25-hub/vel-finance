@@ -147,6 +147,7 @@ if page == "Dashboard":
                     json.dump(updated_data, f)
 
                 st.success("✅ Sync completed")
+                st.rerun()
 
 # ================= ADD PAYMENT =================
 if page == "Add Payment":
@@ -160,6 +161,7 @@ if page == "Add Payment":
         submitted = st.form_submit_button("✅ ADD PAYMENT", use_container_width=True)
 
         if submitted:
+
             new_entry = {
                 "id": str(uuid.uuid4()),
                 "customer_id": int(customer_id),
@@ -168,15 +170,43 @@ if page == "Add Payment":
                 "is_synced": False
             }
 
-            with open(LOCAL_FILE, "r") as f:
-                data = json.load(f)
+            if is_online():
+                try:
+                    res = requests.post(
+                        "https://vel-finance-api.onrender.com/transactions/add",
+                        json=new_entry,
+                        timeout=5
+                    )
 
-            data.append(new_entry)
+                    if res.status_code == 200:
+                        st.success("✅ Payment added online")
+                        st.rerun()
+                    else:
+                        raise Exception("API failed")
 
-            with open(LOCAL_FILE, "w") as f:
-                json.dump(data, f)
+                except:
+                    st.warning("⚠️ Backend not responding, saving offline")
 
-            st.success(f"📥 Saved Offline → ID {customer_id} ₹{amount_paid}")
+                    with open(LOCAL_FILE, "r") as f:
+                        data = json.load(f)
+
+                    data.append(new_entry)
+
+                    with open(LOCAL_FILE, "w") as f:
+                        json.dump(data, f)
+
+                    st.success("📥 Saved Offline")
+
+            else:
+                with open(LOCAL_FILE, "r") as f:
+                    data = json.load(f)
+
+                data.append(new_entry)
+
+                with open(LOCAL_FILE, "w") as f:
+                    json.dump(data, f)
+
+                st.success("📥 Saved Offline (No Internet)")
 
 # ================= ADD EXPENSE =================
 if page == "Add Expense":
