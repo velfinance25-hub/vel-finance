@@ -180,7 +180,7 @@ if page == "Add Payment":
 
                     if res.status_code == 200:
                         st.success("✅ Payment added online")
-                        return  # ✅ FIX
+                        st.stop()  # ✅ FIX
 
                     else:
                         st.warning("⚠️ API failed, saving offline")
