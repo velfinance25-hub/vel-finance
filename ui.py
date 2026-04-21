@@ -1,20 +1,11 @@
 import streamlit as st
 import requests
-from datetime import date, datetime
-import json
-import os
-import uuid
+from datetime import date
 import time
 
 API_BASE = "https://vel-finance-api.onrender.com"
-LOCAL_FILE = "offline_transactions.json"
 
-# ================= INIT =================
-if not os.path.exists(LOCAL_FILE):
-    with open(LOCAL_FILE, "w") as f:
-        json.dump([], f)
-
-st.set_page_config(page_title="VEL Finance", layout="centered")
+st.set_page_config(page_title="VEL Finance", layout="wide")
 
 # ================= HELPERS =================
 def fetch_with_retry(url):
@@ -36,15 +27,6 @@ def is_online():
         return False
 
 
-def load_offline():
-    with open(LOCAL_FILE, "r") as f:
-        return json.load(f)
-
-
-def save_offline(data):
-    with open(LOCAL_FILE, "w") as f:
-        json.dump(data, f)
-
 # ================= SIDEBAR =================
 page = st.sidebar.selectbox(
     "Menu",
@@ -56,7 +38,7 @@ st.title("💰 VEL Finance")
 if is_online():
     st.success("🟢 Online Mode")
 else:
-    st.error("🔴 Offline Mode")
+    st.error("🔴 No Internet / Server Down")
 
 # ================= DASHBOARD =================
 if page == "Dashboard":
@@ -65,10 +47,12 @@ if page == "Dashboard":
     data = fetch_with_retry(f"{API_BASE}/transactions/daily-summary")
 
     if data:
-        st.success(f"💰 Collected: ₹{data['total_collected']}")
-        st.error(f"💸 Expense: ₹{data['total_expense']}")
-        st.info(f"🧾 Net: ₹{data['net_amount']}")
-        st.warning(f"💼 Money with Customers: ₹{data.get('total_outstanding', 0)}")
+        col1, col2, col3, col4 = st.columns(4)
+
+        col1.metric("💰 Collected", f"₹{data['total_collected']}")
+        col2.metric("💸 Expense", f"₹{data['total_expense']}")
+        col3.metric("📊 Net", f"₹{data['net_amount']}")
+        col4.metric("🏦 Outstanding", f"₹{data.get('total_outstanding', 0)}")
     else:
         st.warning("⚠️ Backend waking up...")
 
@@ -105,38 +89,6 @@ if page == "Dashboard":
     else:
         st.success("All regular ✅")
 
-    # ================= SYNC =================
-    st.markdown("## 🔄 Sync Offline Data")
-
-    offline_data = load_offline()
-    st.write(f"Pending Offline Entries: {len(offline_data)}")
-
-    if st.button("🚀 SYNC NOW"):
-
-        if not is_online():
-            st.error("No internet")
-        elif len(offline_data) == 0:
-            st.info("Nothing to sync")
-        else:
-            success = 0
-
-            for entry in offline_data:
-                try:
-                    res = requests.post(
-                        f"{API_BASE}/transactions/add",
-                        json=entry,
-                        timeout=10
-                    )
-                    if res.status_code == 200:
-                        success += 1
-                except:
-                    st.error("Sync failed")
-                    break
-
-            if success == len(offline_data):
-                save_offline([])
-                st.success("✅ Sync completed")
-                st.rerun()
 
 # ================= ADD PAYMENT =================
 if page == "Add Payment":
@@ -144,57 +96,47 @@ if page == "Add Payment":
 
     with st.form("payment_form", clear_on_submit=True):
 
-        customer_id = st.number_input("Customer ID", min_value=1, step=1, value=None)
-        amount_paid = st.number_input("Amount", min_value=1, step=10, value=None)
+        customer_id = st.text_input("Customer ID")
+        amount_paid = st.text_input("Amount")
 
         submitted = st.form_submit_button("✅ ADD PAYMENT", use_container_width=True)
 
         if submitted:
-
-            if not customer_id or not amount_paid:
+            if not customer_id.strip() or not amount_paid.strip():
                 st.error("Enter valid values")
                 st.stop()
 
-            entry = {
-                "id": str(uuid.uuid4()),
-                "customer_id": int(customer_id),
-                "amount_paid": int(amount_paid),
-                "payment_date": str(date.today()),
-                "is_synced": False
-            }
+            try:
+                res = requests.post(
+                    f"{API_BASE}/transactions/add",
+                    json={
+                        "customer_id": int(customer_id),
+                        "amount_paid": int(amount_paid),
+                        "payment_date": str(date.today())
+                    },
+                    timeout=10
+                )
 
-            if is_online():
-                try:
-                    res = requests.post(
-                        f"{API_BASE}/transactions/add",
-                        json=entry,
-                        timeout=10
-                    )
+                if res.status_code == 200:
+                    st.success("✅ Payment added successfully")
+                    st.rerun()
+                else:
+                    st.error("❌ Failed to add payment")
 
-                    if res.status_code == 200:
-                        st.success("✅ Payment added online")
-                        st.stop()
+            except:
+                st.error("❌ No internet / server issue")
 
-                except:
-                    pass
-
-            # fallback
-            data = load_offline()
-            data.append(entry)
-            save_offline(data)
-
-            st.warning("Saved offline")
 
 # ================= ADD EXPENSE =================
 if page == "Add Expense":
     st.markdown("## 💸 Add Expense")
 
-    amount = st.number_input("Amount", min_value=1, step=10, value=None)
+    amount = st.text_input("Amount")
     note = st.text_input("Note")
 
     if st.button("➕ ADD EXPENSE", use_container_width=True):
 
-        if not amount or note.strip() == "":
+        if not amount.strip() or not note.strip():
             st.error("Enter valid data")
             st.stop()
 
@@ -213,10 +155,11 @@ if page == "Add Expense":
                 st.success(f"✅ Expense added ₹{amount}")
                 st.rerun()
             else:
-                st.error("API Error")
+                st.error("❌ Failed to add expense")
 
         except:
-            st.error("Connection error")
+            st.error("❌ Connection error")
+
 
 # ================= VIEW CUSTOMER =================
 if page == "View Customer":
@@ -238,7 +181,7 @@ if page == "View Customer":
         data = fetch_with_retry(f"{API_BASE}/transactions/customer/{cid}")
 
         if data:
-            st.write(f"👤 {data['name']} | ₹{data['balance']}")
+            st.write(f"👤 {data['name']} | Balance: ₹{data['balance']}")
             st.write(f"📞 {data['phone']}")
 
             st.markdown("### 💵 Transactions")
@@ -247,18 +190,19 @@ if page == "View Customer":
         else:
             st.error("Error loading data")
 
+
 # ================= ADD CUSTOMER =================
 if page == "Add Customer":
     st.markdown("## ➕ Add Customer")
 
     with st.form("customer_form", clear_on_submit=True):
 
-        customer_id = st.number_input("Customer ID", min_value=1, value=None)
+        customer_id = st.text_input("Customer ID")
         name = st.text_input("Name")
         phone = st.text_input("Phone")
         address = st.text_input("Address")
-        interest = st.number_input("Interest", min_value=1, value=None)
-        net_given = st.number_input("Loan Amount", min_value=1, value=None)
+        interest = st.text_input("Interest")
+        net_given = st.text_input("Loan Amount")
 
         loan_date = st.date_input("Loan Date")
         due_date = st.date_input("Due Date")
@@ -289,8 +233,9 @@ if page == "Add Customer":
 
                 if res.status_code == 200:
                     st.success(f"✅ Customer {name} added")
+                    st.rerun()
                 else:
-                    st.error("API error")
+                    st.error("❌ API error")
 
             except:
-                st.error("Connection error")
+                st.error("❌ Connection error")
