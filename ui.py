@@ -1,40 +1,51 @@
 import streamlit as st
 import requests
-from datetime import date
-from datetime import datetime
+from datetime import date, datetime
 import json
 import os
 import uuid
 import time
 
-# ================= RETRY FUNCTION =================
+API_BASE = "https://vel-finance-api.onrender.com"
+LOCAL_FILE = "offline_transactions.json"
+
+# ================= INIT =================
+if not os.path.exists(LOCAL_FILE):
+    with open(LOCAL_FILE, "w") as f:
+        json.dump([], f)
+
+st.set_page_config(page_title="VEL Finance", layout="centered")
+
+# ================= HELPERS =================
 def fetch_with_retry(url):
-    for i in range(3):
+    for _ in range(3):
         try:
-            res = requests.get(url, timeout=5)
+            res = requests.get(url, timeout=10)
             if res.status_code == 200:
                 return res.json()
         except:
             time.sleep(2)
     return None
 
-# ================= ONLINE CHECK =================
+
 def is_online():
     try:
-        requests.get("https://vel-finance-api.onrender.com", timeout=2)
+        requests.get(API_BASE, timeout=3)
         return True
     except:
         return False
 
-LOCAL_FILE = "offline_transactions.json"
 
-if not os.path.exists(LOCAL_FILE):
+def load_offline():
+    with open(LOCAL_FILE, "r") as f:
+        return json.load(f)
+
+
+def save_offline(data):
     with open(LOCAL_FILE, "w") as f:
-        json.dump([], f)
+        json.dump(data, f)
 
-# ================= UI =================
-st.set_page_config(page_title="VEL Finance", layout="centered")
-
+# ================= SIDEBAR =================
 page = st.sidebar.selectbox(
     "Menu",
     ["Dashboard", "Add Payment", "Add Expense", "View Customer", "Add Customer"]
@@ -51,8 +62,7 @@ else:
 if page == "Dashboard":
     st.markdown("## 📊 Today Summary")
 
-    # ✅ FIXED SUMMARY
-    data = fetch_with_retry("https://vel-finance-api.onrender.com/transactions/daily-summary")
+    data = fetch_with_retry(f"{API_BASE}/transactions/daily-summary")
 
     if data:
         st.success(f"💰 Collected: ₹{data['total_collected']}")
@@ -61,91 +71,69 @@ if page == "Dashboard":
     else:
         st.warning("⚠️ Backend waking up...")
 
-    # ✅ FIXED EXPENSE
+    # Expense
     st.markdown("### 🧾 Expense Details")
+    exp = fetch_with_retry(f"{API_BASE}/expenses/today")
 
-    exp_data = fetch_with_retry("https://vel-finance-api.onrender.com/expenses/today")
-
-    if exp_data:
-        if len(exp_data["expenses"]) == 0:
-            st.write("No expenses today")
-        else:
-            for e in exp_data["expenses"]:
-                st.write(f"₹{e['amount']} → {e['note']}")
+    if exp and len(exp["expenses"]) > 0:
+        for e in exp["expenses"]:
+            st.write(f"₹{e['amount']} → {e['note']}")
     else:
-        st.warning("Expense data not available")
+        st.info("No expenses today")
 
-    # ✅ FIXED NOT PAID
+    # Not paid
     st.markdown("### ⚠️ Not Paid Today")
+    np = fetch_with_retry(f"{API_BASE}/customers/not-paid-today")
 
-    not_paid = fetch_with_retry("https://vel-finance-api.onrender.com/customers/not-paid-today")
-
-    if not_paid is not None:
-        if len(not_paid) == 0:
-            st.success("All paid ✅")
-        else:
-            for c in not_paid:
-                st.write(f"{c['customer_id']} - {c['name']}")
+    if np:
+        for c in np:
+            st.warning(f"{c['customer_id']} - {c['name']}")
     else:
-        st.warning("Data not available")
+        st.success("All paid ✅")
 
-    # ✅ FIXED GAPS
-    st.markdown("### 🚨 Not Paid for 3+ Days")
+    # Gaps
+    st.markdown("### 🚨 Payment Gaps")
+    gaps = fetch_with_retry(f"{API_BASE}/customers/payment-gaps")
 
-    gap_data = fetch_with_retry("https://vel-finance-api.onrender.com/customers/payment-gaps")
-
-    if gap_data is not None:
-        if len(gap_data) == 0:
-            st.success("All regular ✅")
-        else:
-            for c in gap_data:
-                if c["last_paid"] == "Never":
-                    st.error(f"{c['customer_id']} - {c['name']} ❗ Never Paid")
-                else:
-                    st.warning(f"{c['customer_id']} - {c['name']} | {c['gap_days']} days gap")
+    if gaps:
+        for c in gaps:
+            if c["last_paid"] == "Never":
+                st.error(f"{c['customer_id']} - {c['name']} ❗ Never Paid")
+            else:
+                st.warning(f"{c['customer_id']} - {c['name']} | {c['gap_days']} days gap")
     else:
-        st.warning("Data not available")
+        st.success("All regular ✅")
 
     # ================= SYNC =================
     st.markdown("## 🔄 Sync Offline Data")
 
-    with open(LOCAL_FILE, "r") as f:
-        offline_data = json.load(f)
-
+    offline_data = load_offline()
     st.write(f"Pending Offline Entries: {len(offline_data)}")
 
-    if not is_online():
-        st.warning("⚠️ No internet. Cannot sync")
-    else:
-        if st.button("🚀 SYNC NOW"):
+    if st.button("🚀 SYNC NOW"):
 
-            if len(offline_data) == 0:
-                st.info("No offline data to sync")
-            else:
-                updated_data = []
+        if not is_online():
+            st.error("No internet")
+        elif len(offline_data) == 0:
+            st.info("Nothing to sync")
+        else:
+            success = 0
 
-                for entry in offline_data:
-                    if not entry.get("is_synced", False):
+            for entry in offline_data:
+                try:
+                    res = requests.post(
+                        f"{API_BASE}/transactions/add",
+                        json=entry,
+                        timeout=10
+                    )
+                    if res.status_code == 200:
+                        success += 1
+                except:
+                    st.error("Sync failed")
+                    break
 
-                        try:
-                            res = requests.post(
-                                "https://vel-finance-api.onrender.com/transactions/add",
-                                json=entry,
-                                timeout=5
-                            )
-
-                            if res.status_code == 200:
-                                entry["is_synced"] = True
-
-                        except:
-                            st.error("⚠️ Connection error")
-                            break
-
-                    updated_data.append(entry)
-
-                with open(LOCAL_FILE, "w") as f:
-                    json.dump(updated_data, f)
-
+            if success == len(offline_data):
+                save_offline([])
                 st.success("✅ Sync completed")
                 st.rerun()
 
@@ -155,14 +143,18 @@ if page == "Add Payment":
 
     with st.form("payment_form", clear_on_submit=True):
 
-        customer_id = st.number_input("Customer ID", step=1, min_value=1)
-        amount_paid = st.number_input("Amount", step=10, min_value=1)
+        customer_id = st.number_input("Customer ID", min_value=1, step=1, value=None)
+        amount_paid = st.number_input("Amount", min_value=1, step=10, value=None)
 
         submitted = st.form_submit_button("✅ ADD PAYMENT", use_container_width=True)
 
         if submitted:
 
-            new_entry = {
+            if not customer_id or not amount_paid:
+                st.error("Enter valid values")
+                st.stop()
+
+            entry = {
                 "id": str(uuid.uuid4()),
                 "customer_id": int(customer_id),
                 "amount_paid": int(amount_paid),
@@ -173,113 +165,86 @@ if page == "Add Payment":
             if is_online():
                 try:
                     res = requests.post(
-                        "https://vel-finance-api.onrender.com/transactions/add",
-                        json=new_entry,
-                        timeout=5
+                        f"{API_BASE}/transactions/add",
+                        json=entry,
+                        timeout=10
                     )
 
                     if res.status_code == 200:
                         st.success("✅ Payment added online")
-                        st.stop()  # ✅ FIX
-
-                    else:
-                        st.warning("⚠️ API failed, saving offline")
+                        st.stop()
 
                 except:
-                    st.warning("⚠️ Backend not responding, saving offline")
+                    pass
 
-            # ✅ ONLY runs if failed
-            with open(LOCAL_FILE, "r") as f:
-                data = json.load(f)
+            # fallback
+            data = load_offline()
+            data.append(entry)
+            save_offline(data)
 
-            data.append(new_entry)
-
-            with open(LOCAL_FILE, "w") as f:
-                json.dump(data, f)
-
-            st.success("📥 Saved Offline")
+            st.warning("Saved offline")
 
 # ================= ADD EXPENSE =================
 if page == "Add Expense":
     st.markdown("## 💸 Add Expense")
 
-    amount = st.number_input("Amount", step=10)
+    amount = st.number_input("Amount", min_value=1, step=10, value=None)
     note = st.text_input("Note")
 
     if st.button("➕ ADD EXPENSE", use_container_width=True):
 
-        res = requests.post(
-            "https://vel-finance-api.onrender.com/expenses/add",
-            json={
-                "amount": int(amount),
-                "note": note,
-                "date": str(date.today())
-            }
-        )
+        if not amount or note.strip() == "":
+            st.error("Enter valid data")
+            st.stop()
 
-        if res.status_code == 200:
-            st.success(f"Added ₹{amount}")
-            st.rerun()
-        else:
-            st.error("Error")
+        try:
+            res = requests.post(
+                f"{API_BASE}/expenses/add",
+                json={
+                    "amount": int(amount),
+                    "note": note,
+                    "date": str(date.today())
+                },
+                timeout=10
+            )
+
+            if res.status_code == 200:
+                st.success(f"✅ Expense added ₹{amount}")
+                st.rerun()
+            else:
+                st.error("API Error")
+
+        except:
+            st.error("Connection error")
 
 # ================= VIEW CUSTOMER =================
 if page == "View Customer":
     st.markdown("## 🔍 Customer Details")
 
-    customers = fetch_with_retry("https://vel-finance-api.onrender.com/customers/")
+    customers = fetch_with_retry(f"{API_BASE}/customers/")
 
     if not customers:
-        st.error("Error")
+        st.error("Failed to load customers")
         st.stop()
 
-    options = {
-        f"{c['customer_id']} - {c['name']}": c["customer_id"]
-        for c in customers
-    }
+    options = {f"{c['customer_id']} - {c['name']}": c["customer_id"] for c in customers}
 
     selected = st.selectbox("Select Customer", list(options.keys()))
 
     if selected:
         cid = options[selected]
 
-        data = fetch_with_retry(
-            f"https://vel-finance-api.onrender.com/transactions/customer/{cid}"
-        )
+        data = fetch_with_retry(f"{API_BASE}/transactions/customer/{cid}")
 
         if data:
-            st.markdown("### 👤 Basic Info")
-            st.write(f"🆔 ID: {data['customer_id']}")
-            st.write(f"👤 Name: {data['name']}")
-            st.write(f"📞 Phone: {data['phone']}")
-            st.write(f"🏠 Address: {data['address']}")
-
-            st.markdown("### 💰 Loan Info")
-            st.write(f"Loan Amount: ₹{data['loan_amount']}")
-            st.write(f"Interest: {data['interest']}")
-
-            loan_date = datetime.strptime(data["loan_date"], "%Y-%m-%d").strftime("%d-%m-%Y")
-            due_date = datetime.strptime(data["due_date"], "%Y-%m-%d").strftime("%d-%m-%Y")
-
-            st.write(f"Loan Date: {loan_date}")
-            st.write(f"Due Date: {due_date}")
-
-            st.markdown("### 📊 Status")
-            st.success(f"Balance: ₹{data['balance']}")
-            st.write(f"Status: {data['status']}")
-            st.write(f"Overdue Days: {data['overdue_days']}")
-            st.write(f"Total Paid: ₹{data['total_paid']}")
+            st.write(f"👤 {data['name']} | ₹{data['balance']}")
+            st.write(f"📞 {data['phone']}")
 
             st.markdown("### 💵 Transactions")
-
-            if len(data["transactions"]) == 0:
-                st.write("No transactions yet")
-            else:
-                for t in data["transactions"]:
-                    payment_date = datetime.strptime(t["payment_date"], "%Y-%m-%d").strftime("%d-%m-%Y")
-                    st.write(f"₹{t['amount_paid']} → {payment_date}")
+            for t in data["transactions"]:
+                st.write(f"₹{t['amount_paid']} → {t['payment_date']}")
         else:
-            st.error("Error loading customer")
+            st.error("Error loading data")
 
 # ================= ADD CUSTOMER =================
 if page == "Add Customer":
@@ -287,38 +252,44 @@ if page == "Add Customer":
 
     with st.form("customer_form", clear_on_submit=True):
 
-        customer_id = st.number_input("Customer ID", step=1, min_value=1)
+        customer_id = st.number_input("Customer ID", min_value=1, value=None)
         name = st.text_input("Name")
         phone = st.text_input("Phone")
         address = st.text_input("Address")
-        interest = st.number_input("Interest", step=1, min_value=1)
-        net_given = st.number_input("Loan Amount", step=100, min_value=1)
+        interest = st.number_input("Interest", min_value=1, value=None)
+        net_given = st.number_input("Loan Amount", min_value=1, value=None)
 
-        loan_date_input = st.date_input("Loan Date")
-        due_date_input = st.date_input("Due Date")
+        loan_date = st.date_input("Loan Date")
+        due_date = st.date_input("Due Date")
 
-        submitted = st.form_submit_button("✅ ADD CUSTOMER", use_container_width=True)
+        submitted = st.form_submit_button("✅ ADD CUSTOMER")
 
         if submitted:
-            loan_date = loan_date_input.strftime("%Y-%m-%d")
-            due_date = due_date_input.strftime("%Y-%m-%d")
 
-            res = requests.post(
-                "https://vel-finance-api.onrender.com/customers/add",
-                json={
-                    "customer_id": int(customer_id),
-                    "name": name,
-                    "phone": phone,
-                    "address": address,
-                    "interest": int(interest),
-                    "net_given": int(net_given),
-                    "loan_date": loan_date,
-                    "due_date": due_date
-                }
-            )
+            if not all([customer_id, name, phone, address, interest, net_given]):
+                st.error("Fill all fields")
+                st.stop()
 
-            if res.status_code == 200:
-                st.success(f"✅ Customer {name} added")
-                st.balloons()
-            else:
-                st.error("❌ Error adding customer")
+            try:
+                res = requests.post(
+                    f"{API_BASE}/customers/add",
+                    json={
+                        "customer_id": int(customer_id),
+                        "name": name,
+                        "phone": phone,
+                        "address": address,
+                        "interest": int(interest),
+                        "net_given": int(net_given),
+                        "loan_date": str(loan_date),
+                        "due_date": str(due_date)
+                    },
+                    timeout=10
+                )
+
+                if res.status_code == 200:
+                    st.success(f"✅ Customer {name} added")
+                else:
+                    st.error("API error")
+
+            except:
+                st.error("Connection error")
