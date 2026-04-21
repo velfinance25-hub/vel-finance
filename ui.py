@@ -68,6 +68,7 @@ if page == "Dashboard":
         st.success(f"💰 Collected: ₹{data['total_collected']}")
         st.error(f"💸 Expense: ₹{data['total_expense']}")
         st.info(f"🧾 Net: ₹{data['net_amount']}")
+        st.warning(f"💼 Money with Customers: ₹{data.get('total_outstanding', 0)}")
     else:
         st.warning("⚠️ Backend waking up...")
 
