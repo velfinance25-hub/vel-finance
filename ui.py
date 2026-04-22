@@ -6,7 +6,8 @@ import time
 st.markdown("""
 <style>
 .block-container {
-    padding-top: 2rem;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
 }
 .stButton>button {
     width: 100%;
@@ -28,7 +29,7 @@ st.set_page_config(page_title="VEL Finance", layout="wide")
 def fetch_with_retry(url):
     for _ in range(3):
         try:
-            res = requests.get(url, timeout=15)
+            res = requests.get(url, timeout=5)
             if res.status_code == 200:
                 return res.json()
         except:
@@ -124,7 +125,7 @@ if page == "Add Payment":
         else:
             st.warning("No customers available or server issue")
             st.stop()
-        amount_paid = st.number_input("Amount", min_value=1, step=10)
+        amount_paid = st.number_input("Amount", step=10, min_value=1, value=None, placeholder="Enter amount")
 
         submitted = st.form_submit_button("✅ ADD PAYMENT", use_container_width=True)
 
@@ -134,15 +135,16 @@ if page == "Add Payment":
                 st.stop()
 
             try:
-                res = requests.post(
-                    f"{API_BASE}/transactions/add",
-                    json={
-                        "customer_id": int(customer_id),
-                        "amount_paid": int(amount_paid),
-                        "payment_date": str(date.today())
-                    },
-                    timeout=15
-                )
+                with st.spinner("Processing..."):
+                    res = requests.post(
+                        f"{API_BASE}/transactions/add",
+                        json={
+                            "customer_id": int(customer_id),
+                            "amount_paid": int(amount_paid),
+                            "payment_date": str(date.today())
+                        },
+                        timeout=5
+                    )
 
                 if res.status_code == 200:
                     st.success("✅ Payment added successfully")
@@ -162,7 +164,7 @@ if page == "Add Payment":
 if page == "Add Expense":
     st.markdown("## 💸 Add Expense")
 
-    amount = st.number_input("Amount", min_value=1, step=10)
+    amount = st.number_input("Amount", step=10, min_value=1, value=None, placeholder="Enter amount")
     note = st.text_input("Note")
 
     if st.button("➕ ADD EXPENSE", use_container_width=True):
@@ -172,15 +174,16 @@ if page == "Add Expense":
             st.stop()
 
         try:
-            res = requests.post(
-                f"{API_BASE}/expenses/add",
-                json={
-                    "amount": int(amount),
-                    "note": note,
-                    "date": str(date.today())
-                },
-                timeout=15
-            )
+            with st.spinner("Processing..."):
+                res = requests.post(
+                    f"{API_BASE}/expenses/add",
+                    json={
+                        "amount": int(amount),
+                        "note": note,
+                        "date": str(date.today())
+                    },
+                    timeout=5
+                )
 
             if res.status_code == 200:
                 st.success(f"✅ Expense added ₹{amount}")
@@ -233,7 +236,7 @@ if page == "View Customer":
         st.write(f"📞 {data['phone']}")
         st.markdown("### 💸 Quick Payment")
 
-        amount = st.number_input("Amount", min_value=1, step=10)
+        amount = st.number_input("Amount", step=10, min_value=1, value=None, placeholder="Enter amount")
 
         if st.button("Pay Now"):
             if amount <= 0:
@@ -241,14 +244,15 @@ if page == "View Customer":
                 st.stop()
 
             try:
-                res = requests.post(
-                    f"{API_BASE}/transactions/add",
-                    json={
-                        "customer_id": cid,
-                        "amount_paid": int(amount),
-                        "payment_date": str(date.today())
-                    }
-                )
+                with st.spinner("Processing..."):
+                    res = requests.post(
+                        f"{API_BASE}/transactions/add",
+                        json={
+                            "customer_id": cid,
+                            "amount_paid": int(amount),
+                            "payment_date": str(date.today())
+                        }
+                    )
 
                 if res.status_code == 200:
                     st.success("Payment added")
@@ -277,8 +281,8 @@ if page == "Add Customer":
         name = st.text_input("Name")
         phone = st.text_input("Phone")
         address = st.text_input("Address")
-        interest = st.number_input("Interest", min_value=0)
-        net_given = st.number_input("Loan Amount", min_value=1)
+        interest = st.number_input("Interest", min_value=0, value=None, placeholder="Enter interest")
+        net_given = st.number_input("Loan Amount", min_value=1, value=None, placeholder="Enter amount")
 
         loan_date = st.date_input("Loan Date")
         due_date = st.date_input("Due Date")
@@ -287,25 +291,30 @@ if page == "Add Customer":
 
         if submitted:
 
-            if not all([customer_id, name, phone, address, interest, net_given]):
+            if not all([customer_id, name, phone, address]):
                 st.error("Fill all fields")
                 st.stop()
 
+            if net_given is None or net_given <= 0:
+                st.error("Enter valid loan amount")
+                st.stop()
+                
             try:
-                res = requests.post(
-                    f"{API_BASE}/customers/add",
-                    json={
-                        "customer_id": int(customer_id),
-                        "name": name,
-                        "phone": phone,
-                        "address": address,
-                        "interest": int(interest),
-                        "net_given": int(net_given),
-                        "loan_date": str(loan_date),
-                        "due_date": str(due_date)
-                    },
-                    timeout=15
-                )
+                with st.spinner("Processing..."):
+                    res = requests.post(
+                        f"{API_BASE}/customers/add",
+                        json={
+                            "customer_id": int(customer_id),
+                            "name": name,
+                            "phone": phone,
+                            "address": address,
+                            "interest": int(interest),
+                            "net_given": int(net_given),
+                            "loan_date": str(loan_date),
+                            "due_date": str(due_date)
+                        },
+                        timeout=5
+                    )
 
                 if res.status_code == 200:
                     st.success(f"✅ Customer {name} added")
