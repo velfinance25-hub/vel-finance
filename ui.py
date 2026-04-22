@@ -59,8 +59,8 @@ else:
 # ================= DASHBOARD =================
 if page == "Dashboard":
     st.markdown("## 📊 Today Summary")
-
-    data = fetch_with_retry(f"{API_BASE}/transactions/daily-summary")
+    with st.spinner("Loading data..."):
+        data = fetch_with_retry(f"{API_BASE}/transactions/daily-summary")
 
     if data:
         col1, col2, col3, col4 = st.columns(4)
@@ -70,7 +70,7 @@ if page == "Dashboard":
         col3.metric("📊 Net", f"₹{data['net_amount']}")
         col4.metric("🏦 Outstanding", f"₹{data.get('total_outstanding', 0)}")
     else:
-        st.warning("⚠️ Backend waking up...")
+        st.info("Loading data, please wait...")
 
 # ================= ADD PAYMENT =================
 if page == "Add Payment":
@@ -111,7 +111,8 @@ if page == "Add Payment":
                 )
 
             if res.status_code == 200:
-                st.success("✅ Payment added successfully")
+                st.success("Payment added successfully")
+                time.sleep(1)
                 st.toast("Saved ✔")
                 st.rerun()
             else:
@@ -143,7 +144,7 @@ if page == "Add Expense":
                         "note": note,
                         "date": str(date.today())
                     },
-                    timeout=10
+                    timeout=15
                 )
 
             if res.status_code == 200:
@@ -153,8 +154,11 @@ if page == "Add Expense":
             else:
                 st.error("❌ Failed to add expense")
 
-        except:
-            st.error("❌ Connection error")
+        except Exception as e:
+        if "timeout" in str(e).lower():
+            st.warning("Server slow, but request may be saved")
+        else:
+            st.error("Connection error")
 
 
 # ================= VIEW CUSTOMER =================
@@ -228,12 +232,12 @@ if page == "Add Customer":
 
     with st.form("customer_form", clear_on_submit=True):
 
-        customer_id = st.number_input("Customer ID", min_value=1)
+        customer_id = st.number_input("Customer ID", min_value=1,step=10)
         name = st.text_input("Name")
         phone = st.text_input("Phone")
         address = st.text_input("Address")
-        interest = st.number_input("Interest %", min_value=0)
-        net_given = st.number_input("Loan Amount", min_value=1)
+        interest = st.number_input("Interest %", min_value=1,step=10)
+        net_given = st.number_input("Loan Amount", min_value=1,step=10)
 
         loan_date = st.date_input("Loan Date")
         due_date = st.date_input("Due Date")
