@@ -119,7 +119,7 @@ if page == "Add Payment":
 
                 if res.status_code == 200:
                     st.success("✅ Payment added successfully")
-                    st.rerun()
+                    st.stop()   # ✅ IMPORTANT FIX
                 else:
                     st.error("❌ Failed to add payment")
 
