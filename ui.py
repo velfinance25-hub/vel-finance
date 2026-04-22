@@ -153,7 +153,7 @@ if page == "Add Expense":
 
             if res.status_code == 200:
                 st.success(f"✅ Expense added ₹{amount}")
-                st.rerun()
+                st.stop()
             else:
                 st.error("❌ Failed to add expense")
 
