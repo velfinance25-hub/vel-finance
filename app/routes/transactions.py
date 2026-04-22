@@ -152,11 +152,21 @@ def get_daily_summary():
 @router.delete("/delete/{customer_id}")
 def delete_customer(customer_id: int):
     try:
-        # delete transactions first (important)
-        supabase.table("transactions").delete().eq("customer_id", customer_id).execute()
+        # 1. delete transactions first
+        supabase.table("transactions") \
+            .delete() \
+            .eq("customer_id", customer_id) \
+            .execute()
 
-        # delete customer
-        res = supabase.table("customers").delete().eq("customer_id", customer_id).execute()
+        # 2. delete customer
+        res = supabase.table("customers") \
+            .delete() \
+            .eq("customer_id", customer_id) \
+            .execute()
+
+        # 🔥 IMPORTANT CHECK
+        if not res.data:
+            return {"error": "Customer not found or not deleted"}
 
         return {"message": "Customer deleted successfully"}
 

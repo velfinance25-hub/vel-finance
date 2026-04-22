@@ -242,7 +242,7 @@ if page == "View Customer":
         if st.button("🗑️ Delete Customer"):
             try:
                 res = requests.delete(f"{API_BASE}/customers/delete/{cid}")
-
+                data = res.json()
                 if res.status_code == 200:
                     st.session_state["msg"] = "Customer deleted successfully"
                     st.rerun()
