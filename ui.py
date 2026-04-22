@@ -281,7 +281,13 @@ if page == "View Customer":
                 st.error("Error")
 
         st.markdown("### 💵 Transactions")
-        for t in data["transactions"]:
+        transactions = data.get("transactions") or data.get("data") or []
+
+        if not transactions:
+            st.info("No transactions found")
+        else:
+            for t in transactions:
+                st.write(f"₹{t.get('amount_paid', 0)} → {t.get('payment_date', '-')}")
             st.write(f"₹{t['amount_paid']} → {t['payment_date']}")
     else:
         st.error("Error loading data")
