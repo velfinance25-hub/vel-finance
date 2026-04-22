@@ -3,6 +3,9 @@ import requests
 from datetime import date
 import time
 
+st.set_page_config(page_title="VEL Finance", layout="wide")
+
+# ================= STYLE =================
 st.markdown("""
 <style>
 .block-container {
@@ -14,25 +17,20 @@ st.markdown("""
     height: 45px;
     font-weight: bold;
 }
-.stTextInput>div>div>input {
-    border-radius: 8px;
-}
 </style>
 """, unsafe_allow_html=True)
 
 API_BASE = "https://vel-finance-api.onrender.com"
 
-st.set_page_config(page_title="VEL Finance", layout="wide")
-
 # ================= HELPERS =================
 def fetch_with_retry(url):
     for _ in range(3):
         try:
-            res = requests.get(url, timeout=10)
+            res = requests.get(url, timeout=8)
             if res.status_code == 200:
                 return res.json()
         except:
-            time.sleep(2)
+            time.sleep(1)
     return None
 
 
@@ -50,12 +48,13 @@ page = st.sidebar.selectbox(
     ["Dashboard", "Add Payment", "Add Expense", "View Customer", "Add Customer"]
 )
 
-st.title("💰 VEL Finance")
+st.markdown("<h1 style='text-align:center;'>💰 VEL Finance</h1>", unsafe_allow_html=True)
 
+# ================= STATUS =================
 if is_online():
     st.success("🟢 Online Mode")
 else:
-    st.error("🔴 No Internet / Server Down")
+    st.error("🔴 Server not reachable")
 
 # ================= DASHBOARD =================
 if page == "Dashboard":
@@ -73,110 +72,84 @@ if page == "Dashboard":
     else:
         st.warning("⚠️ Backend waking up...")
 
-    # Expense
-    st.markdown("### 🧾 Expense Details")
-    exp = fetch_with_retry(f"{API_BASE}/expenses/today")
-
-    if exp and len(exp["expenses"]) > 0:
-        for e in exp["expenses"]:
-            st.write(f"₹{e['amount']} → {e['note']}")
-    else:
-        st.info("No expenses today")
-
-    # Not paid
-    st.markdown("### ⚠️ Not Paid Today")
-    np = fetch_with_retry(f"{API_BASE}/customers/not-paid-today")
-
-    if np:
-        for c in np:
-            st.warning(f"{c['customer_id']} - {c['name']}")
-    else:
-        st.success("All paid ✅")
-
-    # Gaps
-    st.markdown("### 🚨 Payment Gaps")
-    gaps = fetch_with_retry(f"{API_BASE}/customers/payment-gaps")
-
-    if gaps:
-        for c in gaps:
-            if c["last_paid"] == "Never":
-                st.error(f"{c['customer_id']} - {c['name']} ❗ Never Paid")
-            else:
-                st.warning(f"{c['customer_id']} - {c['name']} | {c['gap_days']} days gap")
-    else:
-        st.success("All regular ✅")
-
-
 # ================= ADD PAYMENT =================
 if page == "Add Payment":
     st.markdown("## 💸 Collection Entry")
 
-    with st.form("payment_form", clear_on_submit=True):
+    customers = fetch_with_retry(f"{API_BASE}/customers/")
 
-        customers = fetch_with_retry(f"{API_BASE}/customers/")
+    if not customers:
+        st.error("Failed to load customers")
+        st.stop()
 
-        options = {f"{c['customer_id']} - {c['name']}": c["customer_id"] for c in customers} if customers else {}
+    options = {
+        f"{c['customer_id']} - {c['name']}": c["customer_id"]
+        for c in customers
+    }
 
-        selected = st.selectbox("Select Customer", list(options.keys()))
+    selected = st.selectbox("Select Customer", list(options.keys()))
+    customer_id = options[selected]
 
-        customer_id = options[selected] if selected else None
-        amount_paid = st.text_input("Amount")
+    amount_paid = st.number_input("Amount", min_value=1, step=10)
 
-        submitted = st.form_submit_button("✅ ADD PAYMENT", use_container_width=True)
+    if st.button("✅ ADD PAYMENT", use_container_width=True):
 
-        if submitted:
-            if not customer_id or not amount_paid:
-                st.warning("Please fill all fields")
-                st.stop()
+        if amount_paid <= 0:
+            st.warning("Enter valid amount")
+            st.stop()
 
-            try:
+        try:
+            with st.spinner("Processing payment..."):
                 res = requests.post(
                     f"{API_BASE}/transactions/add",
                     json={
-                        "customer_id": int(customer_id),
+                        "customer_id": customer_id,
                         "amount_paid": int(amount_paid),
                         "payment_date": str(date.today())
                     },
                     timeout=10
                 )
 
-                if res.status_code == 200:
-                    st.success("✅ Payment added successfully")
-                    st.stop()   # ✅ IMPORTANT FIX
-                else:
-                    st.error("❌ Failed to add payment")
+            if res.status_code == 200:
+                st.success("✅ Payment added successfully")
+                st.toast("Saved ✔")
+                st.rerun()
+            else:
+                st.error("❌ Failed to add payment")
 
-            except:
-                st.error("❌ No internet / server issue")
+        except:
+            st.error("❌ Server not reachable")
 
 
 # ================= ADD EXPENSE =================
 if page == "Add Expense":
     st.markdown("## 💸 Add Expense")
 
-    amount = st.text_input("Amount")
+    amount = st.number_input("Amount", min_value=1, step=10)
     note = st.text_input("Note")
 
     if st.button("➕ ADD EXPENSE", use_container_width=True):
 
-        if not amount.strip() or not note.strip():
+        if amount <= 0 or not note:
             st.error("Enter valid data")
             st.stop()
 
         try:
-            res = requests.post(
-                f"{API_BASE}/expenses/add",
-                json={
-                    "amount": int(amount),
-                    "note": note,
-                    "date": str(date.today())
-                },
-                timeout=10
-            )
+            with st.spinner("Adding expense..."):
+                res = requests.post(
+                    f"{API_BASE}/expenses/add",
+                    json={
+                        "amount": int(amount),
+                        "note": note,
+                        "date": str(date.today())
+                    },
+                    timeout=10
+                )
 
             if res.status_code == 200:
                 st.success(f"✅ Expense added ₹{amount}")
-                st.stop()
+                st.toast("Expense saved ✔")
+                st.rerun()
             else:
                 st.error("❌ Failed to add expense")
 
@@ -216,9 +189,10 @@ if page == "View Customer":
         if data:
             st.write(f"👤 {data['name']} | Balance: ₹{data['balance']}")
             st.write(f"📞 {data['phone']}")
+
             st.markdown("### 💸 Quick Payment")
 
-            amount = st.text_input("Amount")
+            amount = st.number_input("Pay Amount", min_value=1, step=10)
 
             if st.button("Pay Now"):
                 try:
@@ -241,6 +215,7 @@ if page == "View Customer":
                     st.error("Error")
 
             st.markdown("### 💵 Transactions")
+
             for t in data["transactions"]:
                 st.write(f"₹{t['amount_paid']} → {t['payment_date']}")
         else:
@@ -253,12 +228,12 @@ if page == "Add Customer":
 
     with st.form("customer_form", clear_on_submit=True):
 
-        customer_id = st.text_input("Customer ID")
+        customer_id = st.number_input("Customer ID", min_value=1)
         name = st.text_input("Name")
         phone = st.text_input("Phone")
         address = st.text_input("Address")
-        interest = st.text_input("Interest")
-        net_given = st.text_input("Loan Amount")
+        interest = st.number_input("Interest %", min_value=0)
+        net_given = st.number_input("Loan Amount", min_value=1)
 
         loan_date = st.date_input("Loan Date")
         due_date = st.date_input("Due Date")
@@ -267,7 +242,7 @@ if page == "Add Customer":
 
         if submitted:
 
-            if not all([customer_id, name, phone, address, interest, net_given]):
+            if not name or not phone or not address:
                 st.error("Fill all fields")
                 st.stop()
 
