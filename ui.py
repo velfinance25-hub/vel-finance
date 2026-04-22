@@ -243,11 +243,12 @@ if page == "View Customer":
             try:
                 res = requests.delete(f"{API_BASE}/customers/delete/{cid}")
                 data = res.json()
-                if res.status_code == 200:
+
+                if res.status_code == 200 and "message" in data:
                     st.session_state["msg"] = "Customer deleted successfully"
                     st.rerun()
                 else:
-                    st.error("Failed to delete")
+                    st.error(data.get("error", "Failed to delete"))
 
             except:
                 st.error("Error deleting customer")
@@ -288,7 +289,7 @@ if page == "View Customer":
         else:
             for t in transactions:
                 st.write(f"₹{t.get('amount_paid', 0)} → {t.get('payment_date', '-')}")
-            st.write(f"₹{t['amount_paid']} → {t['payment_date']}")
+                st.write(f"₹{t['amount_paid']} → {t['payment_date']}")
     else:
         st.error("Error loading data")
 
