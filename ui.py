@@ -3,6 +3,23 @@ import requests
 from datetime import date
 import time
 
+st.markdown("""
+<style>
+.block-container {
+    padding-top: 2rem;
+}
+.stButton>button {
+    width: 100%;
+    border-radius: 10px;
+    height: 45px;
+    font-weight: bold;
+}
+.stTextInput>div>div>input {
+    border-radius: 8px;
+}
+</style>
+""", unsafe_allow_html=True)
+
 API_BASE = "https://vel-finance-api.onrender.com"
 
 st.set_page_config(page_title="VEL Finance", layout="wide")
@@ -96,7 +113,13 @@ if page == "Add Payment":
 
     with st.form("payment_form", clear_on_submit=True):
 
-        customer_id = st.text_input("Customer ID")
+        customers = fetch_with_retry(f"{API_BASE}/customers/")
+
+        options = {f"{c['customer_id']} - {c['name']}": c["customer_id"] for c in customers} if customers else {}
+
+        selected = st.selectbox("Select Customer", list(options.keys()))
+
+        customer_id = options[selected] if selected else None
         amount_paid = st.text_input("Amount")
 
         submitted = st.form_submit_button("✅ ADD PAYMENT", use_container_width=True)
@@ -171,7 +194,17 @@ if page == "View Customer":
         st.error("Failed to load customers")
         st.stop()
 
-    options = {f"{c['customer_id']} - {c['name']}": c["customer_id"] for c in customers}
+    search = st.text_input("Search Customer")
+
+    filtered = [
+        c for c in customers
+        if search.lower() in c["name"].lower()
+    ]
+
+    options = {
+        f"{c['customer_id']} - {c['name']}": c["customer_id"]
+        for c in filtered
+    }
 
     selected = st.selectbox("Select Customer", list(options.keys()))
 
@@ -183,6 +216,29 @@ if page == "View Customer":
         if data:
             st.write(f"👤 {data['name']} | Balance: ₹{data['balance']}")
             st.write(f"📞 {data['phone']}")
+            st.markdown("### 💸 Quick Payment")
+
+            amount = st.text_input("Amount")
+
+            if st.button("Pay Now"):
+                try:
+                    res = requests.post(
+                        f"{API_BASE}/transactions/add",
+                        json={
+                            "customer_id": cid,
+                            "amount_paid": int(amount),
+                            "payment_date": str(date.today())
+                        }
+                    )
+
+                    if res.status_code == 200:
+                        st.success("Payment added")
+                        st.rerun()
+                    else:
+                        st.error("Failed")
+
+                except:
+                    st.error("Error")
 
             st.markdown("### 💵 Transactions")
             for t in data["transactions"]:
