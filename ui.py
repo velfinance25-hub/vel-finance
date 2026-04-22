@@ -125,8 +125,8 @@ if page == "Add Payment":
         submitted = st.form_submit_button("✅ ADD PAYMENT", use_container_width=True)
 
         if submitted:
-            if not customer_id.strip() or not amount_paid.strip():
-                st.error("Enter valid values")
+            if not customer_id or not amount_paid:
+                st.warning("Please fill all fields")
                 st.stop()
 
             try:
