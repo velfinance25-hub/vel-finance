@@ -126,8 +126,8 @@ if page == "Add Payment":
 
         if submitted:
             if not customer_id or not amount_paid:
-            st.warning("Please fill all fields")
-            st.stop()
+                st.warning("Please fill all fields")
+                st.stop()
 
             try:
                 res = requests.post(
