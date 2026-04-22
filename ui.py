@@ -239,6 +239,18 @@ if page == "View Customer":
     if data:
         st.write(f"👤 {data['name']} | Balance: ₹{data['balance']}")
         st.write(f"📞 {data['phone']}")
+        if st.button("🗑️ Delete Customer"):
+            try:
+                res = requests.delete(f"{API_BASE}/customers/delete/{cid}")
+
+                if res.status_code == 200:
+                    st.session_state["msg"] = "Customer deleted successfully"
+                    st.rerun()
+                else:
+                    st.error("Failed to delete")
+
+            except:
+                st.error("Error deleting customer")
         st.markdown("### 💸 Quick Payment")
 
         amount = st.number_input("Amount", step=10, min_value=0, value=None, placeholder="Enter amount")
@@ -286,7 +298,7 @@ if page == "Add Customer":
         name = st.text_input("Name")
         phone = st.text_input("Phone")
         address = st.text_input("Address")
-        interest = st.number_input("Interest", min_value=0, value=None, placeholder="Enter interest")
+        interest = st.number_input("Interest", min_value=0, step=1)
         net_given = st.number_input("Loan Amount", min_value=0, value=None, placeholder="Enter amount")
 
         loan_date = st.date_input("Loan Date")
