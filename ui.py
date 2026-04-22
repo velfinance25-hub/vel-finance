@@ -6,8 +6,8 @@ import time
 st.markdown("""
 <style>
 .block-container {
-    padding-top: 1rem;
-    padding-bottom: 1rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
 }
 .stButton>button {
     width: 100%;
@@ -52,6 +52,10 @@ page = st.sidebar.selectbox(
 )
 
 st.title("💰 VEL Finance")
+
+if "msg" in st.session_state:
+    st.success(st.session_state["msg"])
+    del st.session_state["msg"]
 
 if is_online():
     st.success("🟢 Online Mode")
@@ -111,6 +115,7 @@ if page == "Dashboard":
 
 # ================= ADD PAYMENT =================
 if page == "Add Payment":
+    
     st.markdown("## 💸 Collection Entry")
 
     with st.form("payment_form", clear_on_submit=True):
@@ -125,7 +130,7 @@ if page == "Add Payment":
         else:
             st.warning("No customers available or server issue")
             st.stop()
-        amount_paid = st.number_input("Amount", step=10, min_value=1, value=None, placeholder="Enter amount")
+        amount_paid = st.number_input("Amount", step=10, min_value=0, value=None, placeholder="Enter amount")
 
         submitted = st.form_submit_button("✅ ADD PAYMENT", use_container_width=True)
 
@@ -147,8 +152,7 @@ if page == "Add Payment":
                     )
 
                 if res.status_code == 200:
-                    st.success("✅ Payment added successfully")
-                    time.sleep(1)
+                    st.session_state["msg"] = "Payment added successfully"
                     st.rerun()
                 else:
                     st.error("❌ Failed to add payment")
@@ -162,10 +166,11 @@ if page == "Add Payment":
 
 # ================= ADD EXPENSE =================
 if page == "Add Expense":
+
     st.markdown("## 💸 Add Expense")
 
-    amount = st.number_input("Amount", step=10, min_value=1, value=None, placeholder="Enter amount")
-    note = st.text_input("Note")
+    amount = st.number_input("Amount", step=10, min_value=0, value=None, placeholder="Enter amount")
+    note = st.text_input("Note", placeholder="Enter expense note")
 
     if st.button("➕ ADD EXPENSE", use_container_width=True):
 
@@ -186,8 +191,7 @@ if page == "Add Expense":
                 )
 
             if res.status_code == 200:
-                st.success(f"✅ Expense added ₹{amount}")
-                time.sleep(1)
+                st.session_state["msg"] = f"Expense added ₹{amount}"
                 st.rerun()
             else:
                 st.error("❌ Failed to add expense")
@@ -201,6 +205,7 @@ if page == "Add Expense":
 
 # ================= VIEW CUSTOMER =================
 if page == "View Customer":
+  
     st.markdown("## 🔍 Customer Details")
 
     customers = fetch_with_retry(f"{API_BASE}/customers/")
@@ -236,7 +241,7 @@ if page == "View Customer":
         st.write(f"📞 {data['phone']}")
         st.markdown("### 💸 Quick Payment")
 
-        amount = st.number_input("Amount", step=10, min_value=1, value=None, placeholder="Enter amount")
+        amount = st.number_input("Amount", step=10, min_value=0, value=None, placeholder="Enter amount")
 
         if st.button("Pay Now"):
             if amount <= 0:
@@ -255,8 +260,7 @@ if page == "View Customer":
                     )
 
                 if res.status_code == 200:
-                    st.success("Payment added")
-                    time.sleep(1)
+                    st.session_state["msg"] = "Payment added"
                     st.rerun()
                 else:
                     st.error("Failed")
@@ -273,6 +277,7 @@ if page == "View Customer":
 
 # ================= ADD CUSTOMER =================
 if page == "Add Customer":
+    
     st.markdown("## ➕ Add Customer")   
 
     with st.form("customer_form", clear_on_submit=True):
@@ -282,7 +287,7 @@ if page == "Add Customer":
         phone = st.text_input("Phone")
         address = st.text_input("Address")
         interest = st.number_input("Interest", min_value=0, value=None, placeholder="Enter interest")
-        net_given = st.number_input("Loan Amount", min_value=1, value=None, placeholder="Enter amount")
+        net_given = st.number_input("Loan Amount", min_value=0, value=None, placeholder="Enter amount")
 
         loan_date = st.date_input("Loan Date")
         due_date = st.date_input("Due Date")
@@ -308,7 +313,7 @@ if page == "Add Customer":
                             "name": name,
                             "phone": phone,
                             "address": address,
-                            "interest": int(interest),
+                            "interest": int(interest) if interest else 0,
                             "net_given": int(net_given),
                             "loan_date": str(loan_date),
                             "due_date": str(due_date)
@@ -317,10 +322,13 @@ if page == "Add Customer":
                     )
 
                 if res.status_code == 200:
-                    st.success(f"✅ Customer {name} added")
+                    st.session_state["msg"] = f"Customer {name} added"
                     st.rerun()
                 else:
                     st.error("❌ API error")
 
-            except:
-                st.error("❌ Connection error")
+            except Exception as e:
+                if "timeout" in str(e).lower():
+                    st.warning("⚠️ Server slow, but data may be saved")
+                else:
+                    st.error("❌ Connection error")
