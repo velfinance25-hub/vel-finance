@@ -28,7 +28,7 @@ st.set_page_config(page_title="VEL Finance", layout="wide")
 def fetch_with_retry(url):
     for _ in range(3):
         try:
-            res = requests.get(url, timeout=10)
+            res = requests.get(url, timeout=15)
             if res.status_code == 200:
                 return res.json()
         except:
@@ -61,7 +61,8 @@ else:
 if page == "Dashboard":
     st.markdown("## 📊 Today Summary")
 
-    data = fetch_with_retry(f"{API_BASE}/transactions/daily-summary")
+    with st.spinner("Loading data..."):
+        data = fetch_with_retry(f"{API_BASE}/transactions/daily-summary")
 
     if data:
         col1, col2, col3, col4 = st.columns(4)
@@ -71,7 +72,7 @@ if page == "Dashboard":
         col3.metric("📊 Net", f"₹{data['net_amount']}")
         col4.metric("🏦 Outstanding", f"₹{data.get('total_outstanding', 0)}")
     else:
-        st.warning("⚠️ Backend waking up...")
+        st.info("Loading data, please wait...")
 
     # Expense
     st.markdown("### 🧾 Expense Details")
@@ -117,16 +118,19 @@ if page == "Add Payment":
 
         options = {f"{c['customer_id']} - {c['name']}": c["customer_id"] for c in customers} if customers else {}
 
-        selected = st.selectbox("Select Customer", list(options.keys()))
-
-        customer_id = options[selected] if selected else None
-        amount_paid = st.text_input("Amount")
+        if options:
+            selected = st.selectbox("Select Customer", list(options.keys()))
+            customer_id = options[selected]
+        else:
+            st.warning("No customers available or server issue")
+            st.stop()
+        amount_paid = st.number_input("Amount", min_value=1, step=10)
 
         submitted = st.form_submit_button("✅ ADD PAYMENT", use_container_width=True)
 
         if submitted:
-            if not customer_id or not amount_paid:
-                st.warning("Please fill all fields")
+            if amount_paid <= 0:
+                st.warning("Enter valid amount")
                 st.stop()
 
             try:
@@ -137,30 +141,34 @@ if page == "Add Payment":
                         "amount_paid": int(amount_paid),
                         "payment_date": str(date.today())
                     },
-                    timeout=10
+                    timeout=15
                 )
 
                 if res.status_code == 200:
                     st.success("✅ Payment added successfully")
-                    st.stop()   # ✅ IMPORTANT FIX
+                    time.sleep(1)
+                    st.rerun()
                 else:
                     st.error("❌ Failed to add payment")
 
-            except:
-                st.error("❌ No internet / server issue")
+            except Exception as e:
+                if "timeout" in str(e).lower():
+                    st.warning("⚠️ Server slow, but payment may be saved")
+                else:
+                    st.error("❌ No internet / server issue")
 
 
 # ================= ADD EXPENSE =================
 if page == "Add Expense":
     st.markdown("## 💸 Add Expense")
 
-    amount = st.text_input("Amount")
+    amount = st.number_input("Amount", min_value=1, step=10)
     note = st.text_input("Note")
 
     if st.button("➕ ADD EXPENSE", use_container_width=True):
 
-        if not amount.strip() or not note.strip():
-            st.error("Enter valid data")
+        if amount <= 0 or not note.strip():
+            st.error("Enter valid amount")
             st.stop()
 
         try:
@@ -171,17 +179,21 @@ if page == "Add Expense":
                     "note": note,
                     "date": str(date.today())
                 },
-                timeout=10
+                timeout=15
             )
 
             if res.status_code == 200:
                 st.success(f"✅ Expense added ₹{amount}")
-                st.stop()
+                time.sleep(1)
+                st.rerun()
             else:
                 st.error("❌ Failed to add expense")
 
-        except:
-            st.error("❌ Connection error")
+        except Exception as e:
+            if "timeout" in str(e).lower():
+                st.warning("⚠️ Server slow, but expense may be saved")
+            else:
+                st.error("❌ Connection error")
 
 
 # ================= VIEW CUSTOMER =================
@@ -194,7 +206,7 @@ if page == "View Customer":
         st.error("Failed to load customers")
         st.stop()
 
-    search = st.text_input("Search Customer")
+    search = st.text_input("Search Customer") or ""
 
     filtered = [
         c for c in customers
@@ -206,50 +218,58 @@ if page == "View Customer":
         for c in filtered
     }
 
-    selected = st.selectbox("Select Customer", list(options.keys()))
-
-    if selected:
+    if options:
+        selected = st.selectbox("Select Customer", list(options.keys()))
         cid = options[selected]
+    else:
+        st.warning("⚠️ No customers found")
+        st.stop()
 
-        data = fetch_with_retry(f"{API_BASE}/transactions/customer/{cid}")
+    # ✅ MUST BE HERE (NOT inside else)
+    data = fetch_with_retry(f"{API_BASE}/transactions/customer/{cid}")
 
-        if data:
-            st.write(f"👤 {data['name']} | Balance: ₹{data['balance']}")
-            st.write(f"📞 {data['phone']}")
-            st.markdown("### 💸 Quick Payment")
+    if data:
+        st.write(f"👤 {data['name']} | Balance: ₹{data['balance']}")
+        st.write(f"📞 {data['phone']}")
+        st.markdown("### 💸 Quick Payment")
 
-            amount = st.text_input("Amount")
+        amount = st.number_input("Amount", min_value=1, step=10)
 
-            if st.button("Pay Now"):
-                try:
-                    res = requests.post(
-                        f"{API_BASE}/transactions/add",
-                        json={
-                            "customer_id": cid,
-                            "amount_paid": int(amount),
-                            "payment_date": str(date.today())
-                        }
-                    )
+        if st.button("Pay Now"):
+            if amount <= 0:
+                st.error("Enter valid amount")
+                st.stop()
 
-                    if res.status_code == 200:
-                        st.success("Payment added")
-                        st.rerun()
-                    else:
-                        st.error("Failed")
+            try:
+                res = requests.post(
+                    f"{API_BASE}/transactions/add",
+                    json={
+                        "customer_id": cid,
+                        "amount_paid": int(amount),
+                        "payment_date": str(date.today())
+                    }
+                )
 
-                except:
-                    st.error("Error")
+                if res.status_code == 200:
+                    st.success("Payment added")
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error("Failed")
 
-            st.markdown("### 💵 Transactions")
-            for t in data["transactions"]:
-                st.write(f"₹{t['amount_paid']} → {t['payment_date']}")
-        else:
-            st.error("Error loading data")
+            except:
+                st.error("Error")
+
+        st.markdown("### 💵 Transactions")
+        for t in data["transactions"]:
+            st.write(f"₹{t['amount_paid']} → {t['payment_date']}")
+    else:
+        st.error("Error loading data")
 
 
 # ================= ADD CUSTOMER =================
 if page == "Add Customer":
-    st.markdown("## ➕ Add Customer")
+    st.markdown("## ➕ Add Customer")   
 
     with st.form("customer_form", clear_on_submit=True):
 
@@ -257,8 +277,8 @@ if page == "Add Customer":
         name = st.text_input("Name")
         phone = st.text_input("Phone")
         address = st.text_input("Address")
-        interest = st.text_input("Interest")
-        net_given = st.text_input("Loan Amount")
+        interest = st.number_input("Interest", min_value=0)
+        net_given = st.number_input("Loan Amount", min_value=1)
 
         loan_date = st.date_input("Loan Date")
         due_date = st.date_input("Due Date")
@@ -284,7 +304,7 @@ if page == "Add Customer":
                         "loan_date": str(loan_date),
                         "due_date": str(due_date)
                     },
-                    timeout=10
+                    timeout=15
                 )
 
                 if res.status_code == 200:
