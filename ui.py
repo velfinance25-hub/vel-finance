@@ -104,17 +104,16 @@ if page == "Dashboard":
     st.markdown("## 📊 Today Summary")
 
     with st.spinner("Loading data..."):
-        data_all = fetch_with_retry(f"{API_BASE}/dashboard")
+        data = fetch_with_retry(f"{API_BASE}/transactions/daily-summary")
 
-    if not data_all:
+    if not data:
         st.error("⚠️ Server busy, try again")
         st.stop()
 
-    data = data_all["summary"]
-    not_paid = data_all.get("not_paid", [])
-    gaps = data_all.get("gaps", [])
+    not_paid = []
+    gaps = []
 
-    if not data or "error" in data:
+    if not data:
         st.error("⚠️ Server busy, try again")
         st.stop()
 
@@ -446,7 +445,7 @@ if page == "History":
         f"{API_BASE}/transactions/summary-by-date/{selected_date_str}"
     )
 
-    if not data or "error" in data:
+    if not data:
         st.error("Failed to load summary")
         st.stop()
 
