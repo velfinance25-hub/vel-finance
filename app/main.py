@@ -13,9 +13,6 @@ def root():
     return {"message": "VEL Finance Running"}
 
 @app.get("/health")
+@app.head("/health")   # ✅ ADD THIS LINE
 def health():
-    try:
-        supabase.table("customers").select("customer_id").limit(1).execute()
-    except:
-        pass
     return {"status": "ok"}
