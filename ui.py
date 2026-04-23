@@ -52,7 +52,7 @@ warmup()
 
 # ================= HELPERS =================
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=5)
 def fetch_with_retry(url):
     for _ in range(5):
         try:
@@ -105,7 +105,7 @@ if page == "Dashboard":
 
     with st.spinner("Loading data..."):
         data = fetch_with_retry(f"{API_BASE}/transactions/daily-summary")
-
+    st.write(data)
     if not data:
         st.error("⚠️ Server busy, try again")
         st.stop()
@@ -113,16 +113,16 @@ if page == "Dashboard":
     not_paid = []
     gaps = []
 
-    if not data:
-        st.error("⚠️ Server busy, try again")
+    if not data or "error" in data:
+        st.warning("⚠️ Server busy, try again")
         st.stop()
 
     col1, col2, col3, col4 = st.columns(4)
 
-    col1.metric("💰 Collected", f"₹{data.get('total_collected', 0)}", delta="Today")
-    col2.metric("💸 Expense", f"₹{data.get('total_expense', 0)}", delta="Today")
-    col3.metric("📊 Net", f"₹{data.get('net_amount', 0)}", delta="Profit")
-    col4.metric("🏦 Outstanding", f"₹{data.get('total_outstanding', 0)}", delta="Pending")
+    col1.metric("💰 Collected", f"₹{data.get('total_collected', 0)}")
+    col2.metric("💸 Expense", f"₹{data.get('total_expense', 0)}")
+    col3.metric("📊 Net", f"₹{data.get('net_amount', 0)}")
+    col4.metric("🏦 Outstanding", f"₹{data.get('total_outstanding', 0)}")
     st.divider()
     st.markdown("### 📊 Weekly Financial Trends")
     weekly = get_weekly_data()
