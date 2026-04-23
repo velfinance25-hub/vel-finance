@@ -100,3 +100,26 @@ def get_payment_gaps():
             })
 
     return result
+
+@router.delete("/delete/{customer_id}")
+def delete_customer(customer_id: int):
+    try:
+        # delete transactions first
+        supabase.table("transactions") \
+            .delete() \
+            .eq("customer_id", customer_id) \
+            .execute()
+
+        # delete customer
+        res = supabase.table("customers") \
+            .delete() \
+            .eq("customer_id", customer_id) \
+            .execute()
+
+        if not res.data:
+            return {"error": "Customer not found or already deleted"}
+
+        return {"message": "Customer deleted successfully"}
+
+    except Exception as e:
+        return {"error": str(e)}

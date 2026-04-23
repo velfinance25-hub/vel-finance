@@ -149,22 +149,3 @@ def get_daily_summary():
             "error": str(e)
         }
 
-@router.delete("/delete/{customer_id}")
-def delete_customer(customer_id: int):
-    try:
-        # delete transactions
-        supabase.table("transactions") \
-            .delete() \
-            .eq("customer_id", customer_id) \
-            .execute()
-
-        # delete customer
-        supabase.table("customers") \
-            .delete() \
-            .eq("customer_id", customer_id) \
-            .execute()
-
-        return {"message": "Customer deleted successfully"}
-
-    except Exception as e:
-        return {"error": str(e)}

@@ -240,22 +240,25 @@ if page == "View Customer":
         st.write(f"👤 {data['name']} | Balance: ₹{data['balance']}")
         st.write(f"📞 {data['phone']}")
         if st.button("🗑️ Delete Customer"):
-            try:
-                res = requests.delete(f"{API_BASE}/transactions/delete/{cid}")
-                data = res.json()
+            confirm = st.confirm("Are you sure you want to delete this customer?")
 
-                if res.status_code == 200:
-                    if "message" in data:
-                        st.session_state["msg"] = data["message"]
-                        st.rerun()
+            if confirm:
+                try:
+                    res = requests.delete(f"{API_BASE}/customers/delete/{cid}")
+                    data = res.json()
+
+                    if res.status_code == 200:
+                        if "message" in data:
+                            st.session_state["msg"] = data["message"]
+                            st.rerun()
+                        else:
+                            st.error(data.get("error", "Delete failed"))
                     else:
-                        st.error(data.get("error", "Delete failed"))
+                        st.error("Server error")
 
-                else:
-                    st.error("Server error")
+                except Exception as e:
+                    st.error(f"Error deleting customer: {e}")
 
-            except Exception as e:
-                st.error(f"Error deleting customer: {e}")
         st.markdown("### 💸 Quick Payment")
 
         amount = st.number_input("Amount", step=10, min_value=0, value=None, placeholder="Enter amount")
