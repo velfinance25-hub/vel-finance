@@ -244,14 +244,18 @@ if page == "View Customer":
                 res = requests.delete(f"{API_BASE}/transactions/delete/{cid}")
                 data = res.json()
 
-                if res.status_code == 200 and "message" in data:
-                    st.session_state["msg"] = "Customer deleted successfully"
-                    st.rerun()
-                else:
-                    st.error(data.get("error", "Failed to delete"))
+                if res.status_code == 200:
+                    if "message" in data:
+                        st.session_state["msg"] = data["message"]
+                        st.rerun()
+                    else:
+                        st.error(data.get("error", "Delete failed"))
 
-            except:
-                st.error("Error deleting customer")
+                else:
+                    st.error("Server error")
+
+            except Exception as e:
+                st.error(f"Error deleting customer: {e}")
         st.markdown("### 💸 Quick Payment")
 
         amount = st.number_input("Amount", step=10, min_value=0, value=None, placeholder="Enter amount")
