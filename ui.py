@@ -108,13 +108,13 @@ if page == "Dashboard":
     gaps = data_all["gaps"]
 
         
-
+    st.write(data)
     if data:
         col1, col2, col3, col4 = st.columns(4)
 
-        col1.metric("💰 Collected", f"₹{data['total_collected']}")
-        col2.metric("💸 Expense", f"₹{data['total_expense']}")
-        col3.metric("📊 Net", f"₹{data['net_amount']}")
+        col1.metric("💰 Collected", f"₹{data.get('total_collected', 0)}")
+        col2.metric("💸 Expense", f"₹{data.get('total_expense', 0)}")
+        col3.metric("📊 Net", f"₹{data.get('net_amount', 0)}")
         col4.metric("🏦 Outstanding", f"₹{data.get('total_outstanding', 0)}")
     else:
         st.info("Loading data, please wait...")
