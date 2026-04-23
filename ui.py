@@ -271,10 +271,16 @@ if page == "View Customer":
 
         amount = st.number_input("Amount", step=10, min_value=0, value=None, placeholder="Enter amount")
 
-        if st.button("Pay Now"):
-            if amount <= 0:
+        if "payment_done" not in st.session_state:
+            st.session_state.payment_done = False
+
+        if st.button("Pay Now", disabled=st.session_state.payment_done):
+
+            if not amount or amount <= 0:
                 st.error("Enter valid amount")
                 st.stop()
+
+            st.session_state.payment_done = True
 
             try:
                 with st.spinner("Processing..."):
@@ -288,13 +294,16 @@ if page == "View Customer":
                     )
 
                 if res.status_code == 200:
-                    st.session_state["msg"] = "Payment added"
+                    st.success("Payment added")
+                    st.session_state.payment_done = False
                     st.rerun()
                 else:
+                    st.session_state.payment_done = False
                     st.error("Failed")
 
-            except:
-                st.error("Error")
+            except Exception as e:
+                st.session_state.payment_done = False
+                st.error(f"Error: {e}")
 
         st.markdown("### 💵 Transactions")
         transactions = data.get("transactions") or data.get("data") or []
@@ -304,7 +313,6 @@ if page == "View Customer":
         else:
             for t in transactions:
                 st.write(f"₹{t.get('amount_paid', 0)} → {t.get('payment_date', '-')}")
-                st.write(f"₹{t['amount_paid']} → {t['payment_date']}")
     else:
         st.error("Error loading data")
 
