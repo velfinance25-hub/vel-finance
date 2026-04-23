@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from app.routes import customers, transactions, expenses   # ✅ add this
+from app.db import supabase
 
 app = FastAPI()
 
@@ -13,4 +14,8 @@ def root():
 
 @app.get("/health")
 def health():
+    try:
+        supabase.table("customers").select("customer_id").limit(1).execute()
+    except:
+        pass
     return {"status": "ok"}
