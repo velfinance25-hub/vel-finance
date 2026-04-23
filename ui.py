@@ -54,13 +54,13 @@ warmup()
 
 @st.cache_data(ttl=30)
 def fetch_with_retry(url):
-    for _ in range(3):
+    for _ in range(5):
         try:
-            res = requests.get(url, timeout=5)
+            res = requests.get(url, timeout=8)
             if res.status_code == 200:
                 return res.json()
         except:
-            time.sleep(2)
+            time.sleep(3)
     return None
 
 @st.cache_data(ttl=60)
