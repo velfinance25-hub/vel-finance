@@ -46,10 +46,13 @@ def is_online():
 
 
 # ================= SIDEBAR =================
-page = st.sidebar.selectbox(
-    "Menu",
-    ["Dashboard", "Add Payment", "Add Expense", "View Customer", "Add Customer"]
-)
+page = st.sidebar.selectbox("Menu", [
+    "Dashboard",
+    "View Customer",
+    "Add Customer",
+    "Add Payment",
+    "History"   # 👈 ADD THIS
+])
 
 st.title("💰 VEL Finance")
 
@@ -383,22 +386,42 @@ if page == "History":
 
     selected_date = st.date_input("Select Date")
 
-    data = fetch_with_retry(f"{API_BASE}/transactions/summary-by-date/{selected_date}")
+    # Convert to string (IMPORTANT)
+    selected_date_str = str(selected_date)
+
+    data = fetch_with_retry(
+        f"{API_BASE}/transactions/summary-by-date/{selected_date_str}"
+    )
 
     if not data or "error" in data:
-        st.error("Failed to load")
+        st.error("Failed to load summary")
         st.stop()
 
+    # 🔹 Top Summary
     col1, col2, col3 = st.columns(3)
 
     col1.metric("💰 Collection", f"₹{data['collection']}")
     col2.metric("💸 Expense", f"₹{data['expense']}")
     col3.metric("📊 Net", f"₹{data['net']}")
 
-    st.markdown("### 💵 Transactions")
-    for t in data["transactions"]:
-        st.write(f"₹{t['amount_paid']} → {t['payment_date']}")
+    st.divider()
 
+    # 🔹 Transactions
+    st.markdown("### 💵 Transactions")
+
+    if not data["transactions"]:
+        st.info("No transactions for this date")
+    else:
+        for t in data["transactions"]:
+            st.write(f"₹{t.get('amount_paid', 0)} → {t.get('payment_date', '-')}")
+
+    st.divider()
+
+    # 🔹 Expenses
     st.markdown("### 🧾 Expenses")
-    for e in data["expenses"]:
-        st.write(f"₹{e['amount']} → {e['note']}")
+
+    if not data["expenses"]:
+        st.info("No expenses for this date")
+    else:
+        for e in data["expenses"]:
+            st.write(f"₹{e.get('amount', 0)} → {e.get('note', '-')}")

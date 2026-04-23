@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from app.db import supabase
 from app.schemas import TransactionCreate
+from datetime import date
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
 
@@ -148,7 +149,7 @@ def get_daily_summary():
         return {
             "error": str(e)
         }
-
+    
 @router.get("/summary-by-date/{selected_date}")
 def summary_by_date(selected_date: str):
     try:
