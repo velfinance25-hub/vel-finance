@@ -374,3 +374,31 @@ if page == "Add Customer":
                     st.warning("⚠️ Server slow, but data may be saved")
                 else:
                     st.error("❌ Connection error")
+
+
+# ================= HISTORY =================
+if page == "History":
+
+    st.markdown("## 📅 Date-wise Summary")
+
+    selected_date = st.date_input("Select Date")
+
+    data = fetch_with_retry(f"{API_BASE}/transactions/summary-by-date/{selected_date}")
+
+    if not data or "error" in data:
+        st.error("Failed to load")
+        st.stop()
+
+    col1, col2, col3 = st.columns(3)
+
+    col1.metric("💰 Collection", f"₹{data['collection']}")
+    col2.metric("💸 Expense", f"₹{data['expense']}")
+    col3.metric("📊 Net", f"₹{data['net']}")
+
+    st.markdown("### 💵 Transactions")
+    for t in data["transactions"]:
+        st.write(f"₹{t['amount_paid']} → {t['payment_date']}")
+
+    st.markdown("### 🧾 Expenses")
+    for e in data["expenses"]:
+        st.write(f"₹{e['amount']} → {e['note']}")

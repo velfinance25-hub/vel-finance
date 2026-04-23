@@ -149,3 +149,35 @@ def get_daily_summary():
             "error": str(e)
         }
 
+@router.get("/summary-by-date/{selected_date}")
+def summary_by_date(selected_date: str):
+    try:
+        # Transactions
+        t_res = supabase.table("transactions") \
+            .select("*") \
+            .eq("payment_date", selected_date) \
+            .execute()
+
+        transactions = t_res.data or []
+        total_collection = sum(t.get("amount_paid", 0) for t in transactions)
+
+        # Expenses
+        e_res = supabase.table("expenses") \
+            .select("*") \
+            .eq("date", selected_date) \
+            .execute()
+
+        expenses = e_res.data or []
+        total_expense = sum(e.get("amount", 0) for e in expenses)
+
+        return {
+            "date": selected_date,
+            "collection": total_collection,
+            "expense": total_expense,
+            "net": total_collection - total_expense,
+            "transactions": transactions,
+            "expenses": expenses
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
