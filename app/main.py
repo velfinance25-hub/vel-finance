@@ -10,3 +10,7 @@ app.include_router(expenses.router)          # ✅ add this
 @app.get("/")
 def root():
     return {"message": "VEL Finance Running"}
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
