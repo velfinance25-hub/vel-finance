@@ -52,20 +52,17 @@ warmup()
 
 # ================= HELPERS =================
 
-@st.cache_data(ttl=5)
+@st.cache_data(ttl=30)
 def fetch_with_retry(url):
-    for _ in range(5):
-        try:
-            res = requests.get(url, timeout=8)
-            if res.status_code == 200:
-                return res.json()
-        except:
-            time.sleep(3)
+    try:
+        res = requests.get(url, timeout=5)
+        if res.status_code == 200:
+            return res.json()
+    except:
+        pass
     return None
 
-@st.cache_data(ttl=60)
-def get_weekly_data():
-    return fetch_with_retry(f"{API_BASE}/transactions/weekly-summary")
+
     
 
 if "customers" not in st.session_state:
@@ -104,67 +101,48 @@ if page == "Dashboard":
     st.markdown("## 📊 Today Summary")
 
     with st.spinner("Loading data..."):
-        data = fetch_with_retry(f"{API_BASE}/transactions/daily-summary")
-    st.write(data)
+        data = fetch_with_retry(f"{API_BASE}/transactions/dashboard")
+
     if not data:
         st.error("⚠️ Server busy, try again")
         st.stop()
 
-    not_paid = []
-    gaps = []
-
-    if not data or "error" in data:
+    if "error" in data:
         st.warning("⚠️ Server busy, try again")
         st.stop()
 
+    summary = data.get("summary", {})
+    not_paid = data.get("not_paid", [])
+    gaps = data.get("gaps", [])
+
+
     col1, col2, col3, col4 = st.columns(4)
 
-    col1.metric("💰 Collected", f"₹{data.get('total_collected', 0)}")
-    col2.metric("💸 Expense", f"₹{data.get('total_expense', 0)}")
-    col3.metric("📊 Net", f"₹{data.get('net_amount', 0)}")
-    col4.metric("🏦 Outstanding", f"₹{data.get('total_outstanding', 0)}")
+    col1.metric("💰 Collected", f"₹{summary.get('total_collected', 0)}")
+    col2.metric("💸 Expense", f"₹{summary.get('total_expense', 0)}")
+    col3.metric("📊 Net", f"₹{summary.get('net_amount', 0)}")
+    col4.metric("🏦 Outstanding", f"₹{summary.get('total_outstanding', 0)}")
     st.divider()
-    st.markdown("### 📊 Weekly Financial Trends")
-    weekly = get_weekly_data()
 
-    if not weekly or "error" in weekly:
-        st.info("No chart data available")
+    st.markdown("### ⚠️ Not Paid Today")
+
+    if not_paid:
+        for c in not_paid:
+            st.warning(f"{c['customer_id']} - {c['name']}")
     else:
-        import pandas as pd
-
-        df = pd.DataFrame(weekly)
-        df["date"] = pd.to_datetime(df["date"])
-
-        st.markdown("#### 💰 Collection Trend")
-        st.line_chart(df.set_index("date")[["collection"]])
-
-        st.markdown("#### 💸 Expense Trend")
-        st.line_chart(df.set_index("date")[["expense"]])
-
-        st.markdown("#### 📊 Net Trend")
-        st.line_chart(df.set_index("date")[["net"]])
-
-        st.divider()
-
-        st.markdown("### ⚠️ Not Paid Today")
-
-        if not_paid:
-            for c in not_paid:
-                st.warning(f"{c['customer_id']} - {c['name']}")
-        else:
-            st.success("All paid today ✅")
+        st.success("All paid today ✅")
 
 
-        st.markdown("### 🚨 Payment Gaps")
+    st.markdown("### 🚨 Payment Gaps")
 
-        if gaps:
-            for c in gaps:
-                if c.get("last_paid") == "Never":
-                    st.error(f"{c['customer_id']} - {c['name']} ❗ Never Paid")
-                else:
-                    st.warning(f"{c['customer_id']} - {c['name']} | {c['gap_days']} days gap")
-        else:
-            st.success("No gaps 🎉")
+    if gaps:
+        for c in gaps:
+            if c.get("last_paid") == "Never":
+                st.error(f"{c['customer_id']} - {c['name']} ❗ Never Paid")
+            else:
+                st.warning(f"{c['customer_id']} - {c['name']} | {c['gap_days']} days gap")
+    else:
+        st.success("No gaps 🎉")
 
 
 # ================= ADD PAYMENT =================

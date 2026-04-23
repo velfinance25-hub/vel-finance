@@ -123,17 +123,18 @@ def get_daily_summary():
 
         total_outstanding = 0
 
+        txn_res = supabase.table("transactions").select("*").execute()
+        all_txns = txn_res.data or []
+
+        paid_map = {}
+        for t in all_txns:
+            cid = t.get("customer_id")
+            paid_map[cid] = paid_map.get(cid, 0) + (t.get("amount_paid", 0) or 0)
+
+        total_outstanding = 0
         for c in customers:
-            txn_res = supabase.table("transactions") \
-                .select("*") \
-                .eq("customer_id", c["customer_id"]) \
-                .execute()
-
-            txns = txn_res.data if txn_res.data else []
-
-            paid = sum(t.get("amount_paid", 0) for t in txns)
-            balance = c.get("net_given", 0) - paid
-
+            paid = paid_map.get(c["customer_id"], 0)
+            balance = (c.get("net_given") or 0) - paid
             total_outstanding += balance
 
         # ✅ FINAL RETURN (ALL VALUES)
@@ -230,16 +231,17 @@ def get_not_paid_logic():
 
     customers = supabase.table("customers").select("*").execute().data or []
 
+    txns = supabase.table("transactions") \
+        .select("customer_id") \
+        .eq("payment_date", today) \
+        .execute().data or []
+
+    paid_today = set(t["customer_id"] for t in txns)
+
     not_paid = []
 
     for c in customers:
-        txn = supabase.table("transactions") \
-            .select("*") \
-            .eq("customer_id", c["customer_id"]) \
-            .eq("payment_date", today) \
-            .execute()
-
-        if not txn.data:
+        if c["customer_id"] not in paid_today:
             not_paid.append({
                 "customer_id": c["customer_id"],
                 "name": c["name"]
@@ -254,15 +256,17 @@ def get_gaps_logic():
 
     customers = supabase.table("customers").select("*").execute().data or []
 
+    all_txns = supabase.table("transactions").select("*").execute().data or []
+
+    txn_map = {}
+    for t in all_txns:
+        cid = t["customer_id"]
+        txn_map.setdefault(cid, []).append(t)
+
     gaps = []
 
     for c in customers:
-        txn = supabase.table("transactions") \
-            .select("*") \
-            .eq("customer_id", c["customer_id"]) \
-            .execute()
-
-        transactions = txn.data or []
+        transactions = txn_map.get(c["customer_id"], [])
 
         if not transactions:
             gaps.append({
