@@ -182,3 +182,42 @@ def summary_by_date(selected_date: str):
 
     except Exception as e:
         return {"error": str(e)}
+    
+
+@router.get("/weekly-summary")
+def weekly_summary():
+    try:
+        from datetime import datetime, timedelta
+
+        result = []
+
+        for i in range(6, -1, -1):
+            day = (datetime.today() - timedelta(days=i)).date().isoformat()
+
+            # collection
+            t = supabase.table("transactions") \
+                .select("amount_paid") \
+                .eq("payment_date", day) \
+                .execute()
+
+            total_collection = sum(x["amount_paid"] for x in (t.data or []))
+
+            # expense
+            e = supabase.table("expenses") \
+                .select("amount") \
+                .eq("date", day) \
+                .execute()
+
+            total_expense = sum(x["amount"] for x in (e.data or []))
+
+            result.append({
+                "date": day,
+                "collection": total_collection,
+                "expense": total_expense,
+                "net": total_collection - total_expense
+            })
+
+        return result
+
+    except Exception as e:
+        return {"error": str(e)}

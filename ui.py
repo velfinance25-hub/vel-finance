@@ -405,7 +405,7 @@ if page == "Add Customer":
                     st.session_state["customers"] = fetch_with_retry(f"{API_BASE}/customers/")
                     st.success(f"Customer {name} added")
                 else:
-                    st.error("❌ API error")
+                    st.error(res.text)
 
             except Exception as e:
                 if "timeout" in str(e).lower():
