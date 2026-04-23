@@ -2,7 +2,6 @@ import streamlit as st
 import requests
 from datetime import date
 import time
-from concurrent.futures import ThreadPoolExecutor
 
 # ✅ MUST BE FIRST STREAMLIT CALL
 st.set_page_config(page_title="VEL Finance", layout="wide")
@@ -25,7 +24,16 @@ st.markdown("""
 }
 </style>
 """, unsafe_allow_html=True)
-
+st.markdown("""
+<style>
+.metric-card {
+    background: #1e1e1e;
+    padding: 15px;
+    border-radius: 12px;
+    box-shadow: 0px 2px 6px rgba(0,0,0,0.3);
+}
+</style>
+""", unsafe_allow_html=True)
 
 API_BASE = "https://vel-finance-api.onrender.com"
 
@@ -55,13 +63,19 @@ def fetch_with_retry(url):
             time.sleep(2)
     return None
 
-@st.cache_data(ttl=10)
+@st.cache_data(ttl=60)
+def get_weekly_data():
+    return fetch_with_retry(f"{API_BASE}/transactions/weekly-summary")
+
+@st.cache_data(ttl=60)
 def load_dashboard():
+    summary = fetch_with_retry(f"{API_BASE}/transactions/daily-summary")
+
+    if not summary or "error" in summary:
+        return None
+
     return {
-        "summary": fetch_with_retry(f"{API_BASE}/transactions/daily-summary"),
-        "expenses": fetch_with_retry(f"{API_BASE}/expenses/today"),
-        "not_paid": fetch_with_retry(f"{API_BASE}/customers/not-paid-today"),
-        "gaps": fetch_with_retry(f"{API_BASE}/customers/payment-gaps")
+        "summary": summary
     }
 
 if "customers" not in st.session_state:
@@ -84,7 +98,7 @@ page = st.sidebar.selectbox("Menu", [
     "History"   # 👈 ADD THIS
 ])
 
-st.title("💰 VEL Finance")
+st.title("💰 VEL Finance Dashboard")
 
 if "msg" in st.session_state:
     st.success(st.session_state["msg"])
@@ -102,52 +116,42 @@ if page == "Dashboard":
     with st.spinner("Loading data..."):
         data_all = load_dashboard()
 
+    if not data_all:
+        st.error("⚠️ Server busy, try again")
+        st.stop()
+
     data = data_all["summary"]
-    exp = data_all["expenses"]
-    np = data_all["not_paid"]
-    gaps = data_all["gaps"]
 
-        
-    st.write(data)
-    if data:
-        col1, col2, col3, col4 = st.columns(4)
+    if not data or "error" in data:
+        st.error("⚠️ Server busy, try again")
+        st.stop()
 
-        col1.metric("💰 Collected", f"₹{data.get('total_collected', 0)}")
-        col2.metric("💸 Expense", f"₹{data.get('total_expense', 0)}")
-        col3.metric("📊 Net", f"₹{data.get('net_amount', 0)}")
-        col4.metric("🏦 Outstanding", f"₹{data.get('total_outstanding', 0)}")
+    col1, col2, col3, col4 = st.columns(4)
+
+    col1.metric("💰 Collected", f"₹{data.get('collection', 0)}", delta="Today")
+    col2.metric("💸 Expense", f"₹{data.get('expense', 0)}", delta="Today")
+    col3.metric("📊 Net", f"₹{data.get('net', 0)}", delta="Profit")
+    col4.metric("🏦 Outstanding", f"₹{data.get('outstanding', 0)}", delta="Pending")
+    st.divider()
+    st.markdown("### 📊 Weekly Financial Trends")
+    weekly = get_weekly_data()
+
+    if not weekly or isinstance(weekly, dict):
+        st.info("No chart data available")
     else:
-        st.info("Loading data, please wait...")
+        import pandas as pd
 
-    # Expense
-    st.markdown("### 🧾 Expense Details")
+        df = pd.DataFrame(weekly)
+        df["date"] = pd.to_datetime(df["date"])
 
-    if exp and len(exp["expenses"]) > 0:
-        for e in exp["expenses"]:
-            st.write(f"₹{e['amount']} → {e['note']}")
-    else:
-        st.info("No expenses today")
+        st.markdown("#### 💰 Collection Trend")
+        st.line_chart(df.set_index("date")[["collection"]])
 
-    # Not paid
-    st.markdown("### ⚠️ Not Paid Today")
+        st.markdown("#### 💸 Expense Trend")
+        st.line_chart(df.set_index("date")[["expense"]])
 
-    if np:
-        for c in np:
-            st.warning(f"{c['customer_id']} - {c['name']}")
-    else:
-        st.success("All paid ✅")
-
-    # Gaps
-    st.markdown("### 🚨 Payment Gaps")
-
-    if gaps:
-        for c in gaps:
-            if c["last_paid"] == "Never":
-                st.error(f"{c['customer_id']} - {c['name']} ❗ Never Paid")
-            else:
-                st.warning(f"{c['customer_id']} - {c['name']} | {c['gap_days']} days gap")
-    else:
-        st.success("All regular ✅")
+        st.markdown("#### 📊 Net Trend")
+        st.line_chart(df.set_index("date")[["net"]])
 
 
 # ================= ADD PAYMENT =================
