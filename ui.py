@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 from datetime import date
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 # ✅ MUST BE FIRST STREAMLIT CALL
 st.set_page_config(page_title="VEL Finance", layout="wide")
@@ -28,6 +29,8 @@ st.markdown("""
 
 API_BASE = "https://vel-finance-api.onrender.com"
 
+
+
 # 🔥 WARMUP
 def warmup():
     try:
@@ -37,7 +40,10 @@ def warmup():
 
 warmup()
 
+
+
 # ================= HELPERS =================
+
 @st.cache_data(ttl=30)
 def fetch_with_retry(url):
     for _ in range(3):
@@ -48,6 +54,18 @@ def fetch_with_retry(url):
         except:
             time.sleep(2)
     return None
+
+@st.cache_data(ttl=10)
+def load_dashboard():
+    return {
+        "summary": fetch_with_retry(f"{API_BASE}/transactions/daily-summary"),
+        "expenses": fetch_with_retry(f"{API_BASE}/expenses/today"),
+        "not_paid": fetch_with_retry(f"{API_BASE}/customers/not-paid-today"),
+        "gaps": fetch_with_retry(f"{API_BASE}/customers/payment-gaps")
+    }
+
+if "customers" not in st.session_state:
+    st.session_state["customers"] = fetch_with_retry(f"{API_BASE}/customers/")
 
 
 def is_online():
@@ -82,7 +100,14 @@ if page == "Dashboard":
     st.markdown("## 📊 Today Summary")
 
     with st.spinner("Loading data..."):
-        data = fetch_with_retry(f"{API_BASE}/transactions/daily-summary")
+        data_all = load_dashboard()
+
+    data = data_all["summary"]
+    exp = data_all["expenses"]
+    np = data_all["not_paid"]
+    gaps = data_all["gaps"]
+
+        
 
     if data:
         col1, col2, col3, col4 = st.columns(4)
@@ -96,7 +121,6 @@ if page == "Dashboard":
 
     # Expense
     st.markdown("### 🧾 Expense Details")
-    exp = fetch_with_retry(f"{API_BASE}/expenses/today")
 
     if exp and len(exp["expenses"]) > 0:
         for e in exp["expenses"]:
@@ -106,7 +130,6 @@ if page == "Dashboard":
 
     # Not paid
     st.markdown("### ⚠️ Not Paid Today")
-    np = fetch_with_retry(f"{API_BASE}/customers/not-paid-today")
 
     if np:
         for c in np:
@@ -116,7 +139,6 @@ if page == "Dashboard":
 
     # Gaps
     st.markdown("### 🚨 Payment Gaps")
-    gaps = fetch_with_retry(f"{API_BASE}/customers/payment-gaps")
 
     if gaps:
         for c in gaps:
@@ -135,7 +157,7 @@ if page == "Add Payment":
 
     with st.form("payment_form", clear_on_submit=True):
 
-        customers = fetch_with_retry(f"{API_BASE}/customers/")
+        customers = st.session_state.get("customers", [])
 
         options = {f"{c['customer_id']} - {c['name']}": c["customer_id"] for c in customers} if customers else {}
 
@@ -167,8 +189,10 @@ if page == "Add Payment":
                     )
 
                 if res.status_code == 200:
-                    st.session_state["msg"] = "Payment added successfully"
-                    st.rerun()
+                    st.success("Payment added successfully")
+# update locally (instant UI update)
+                    if "customers" in st.session_state:
+                        st.session_state["customers"] = fetch_with_retry(f"{API_BASE}/customers/")
                 else:
                     st.error("❌ Failed to add payment")
 
@@ -206,8 +230,7 @@ if page == "Add Expense":
                 )
 
             if res.status_code == 200:
-                st.session_state["msg"] = f"Expense added ₹{amount}"
-                st.rerun()
+                st.success(f"Expense added ₹{amount}")
             else:
                 st.error("❌ Failed to add expense")
 
@@ -223,7 +246,7 @@ if page == "View Customer":
   
     st.markdown("## 🔍 Customer Details")
 
-    customers = fetch_with_retry(f"{API_BASE}/customers/")
+    customers = st.session_state.get("customers", [])
 
     if not customers:
         st.error("Failed to load customers")
@@ -271,7 +294,7 @@ if page == "View Customer":
                         if res.status_code == 200 and "message" in data:
                             st.success("Customer deleted successfully")
                             st.session_state["confirm_delete"] = False
-                            st.rerun()
+                            st.session_state["customers"] = fetch_with_retry(f"{API_BASE}/customers/")
                         else:
                             st.error(data.get("error", "Delete failed"))
 
@@ -311,7 +334,7 @@ if page == "View Customer":
                 if res.status_code == 200:
                     st.success("Payment added")
                     st.session_state.payment_done = False
-                    st.rerun()
+                    st.session_state["customers"] = fetch_with_retry(f"{API_BASE}/customers/")
                 else:
                     st.session_state.payment_done = False
                     st.error("Failed")
@@ -379,8 +402,8 @@ if page == "Add Customer":
                     )
 
                 if res.status_code == 200:
-                    st.session_state["msg"] = f"Customer {name} added"
-                    st.rerun()
+                    st.session_state["customers"] = fetch_with_retry(f"{API_BASE}/customers/")
+                    st.success(f"Customer {name} added")
                 else:
                     st.error("❌ API error")
 
