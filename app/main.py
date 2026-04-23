@@ -13,6 +13,6 @@ def root():
     return {"message": "VEL Finance Running"}
 
 @app.get("/health")
-@app.head("/health")   # ✅ ADD THIS LINE
+@app.head("/health")
 def health():
     return {"status": "ok"}
