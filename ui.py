@@ -66,17 +66,7 @@ def fetch_with_retry(url):
 @st.cache_data(ttl=60)
 def get_weekly_data():
     return fetch_with_retry(f"{API_BASE}/transactions/weekly-summary")
-
-@st.cache_data(ttl=60)
-def load_dashboard():
-    summary = fetch_with_retry(f"{API_BASE}/transactions/daily-summary")
-
-    if not summary or "error" in summary:
-        return None
-
-    return {
-        "summary": summary
-    }
+    
 
 if "customers" not in st.session_state:
     st.session_state["customers"] = fetch_with_retry(f"{API_BASE}/customers/")
@@ -114,13 +104,15 @@ if page == "Dashboard":
     st.markdown("## 📊 Today Summary")
 
     with st.spinner("Loading data..."):
-        data_all = load_dashboard()
+        data_all = fetch_with_retry(f"{API_BASE}/dashboard")
 
     if not data_all:
         st.error("⚠️ Server busy, try again")
         st.stop()
 
     data = data_all["summary"]
+    not_paid = data_all.get("not_paid", [])
+    gaps = data_all.get("gaps", [])
 
     if not data or "error" in data:
         st.error("⚠️ Server busy, try again")
@@ -128,15 +120,15 @@ if page == "Dashboard":
 
     col1, col2, col3, col4 = st.columns(4)
 
-    col1.metric("💰 Collected", f"₹{data.get('collection', 0)}", delta="Today")
-    col2.metric("💸 Expense", f"₹{data.get('expense', 0)}", delta="Today")
-    col3.metric("📊 Net", f"₹{data.get('net', 0)}", delta="Profit")
-    col4.metric("🏦 Outstanding", f"₹{data.get('outstanding', 0)}", delta="Pending")
+    col1.metric("💰 Collected", f"₹{data.get('total_collected', 0)}", delta="Today")
+    col2.metric("💸 Expense", f"₹{data.get('total_expense', 0)}", delta="Today")
+    col3.metric("📊 Net", f"₹{data.get('net_amount', 0)}", delta="Profit")
+    col4.metric("🏦 Outstanding", f"₹{data.get('total_outstanding', 0)}", delta="Pending")
     st.divider()
     st.markdown("### 📊 Weekly Financial Trends")
     weekly = get_weekly_data()
 
-    if not weekly or isinstance(weekly, dict):
+    if not weekly or "error" in weekly:
         st.info("No chart data available")
     else:
         import pandas as pd
@@ -152,6 +144,28 @@ if page == "Dashboard":
 
         st.markdown("#### 📊 Net Trend")
         st.line_chart(df.set_index("date")[["net"]])
+
+        st.divider()
+
+        st.markdown("### ⚠️ Not Paid Today")
+
+        if not_paid:
+            for c in not_paid:
+                st.warning(f"{c['customer_id']} - {c['name']}")
+        else:
+            st.success("All paid today ✅")
+
+
+        st.markdown("### 🚨 Payment Gaps")
+
+        if gaps:
+            for c in gaps:
+                if c.get("last_paid") == "Never":
+                    st.error(f"{c['customer_id']} - {c['name']} ❗ Never Paid")
+                else:
+                    st.warning(f"{c['customer_id']} - {c['name']} | {c['gap_days']} days gap")
+        else:
+            st.success("No gaps 🎉")
 
 
 # ================= ADD PAYMENT =================

@@ -223,6 +223,85 @@ def weekly_summary():
         return {"error": str(e)}
     
 
+def get_not_paid_logic():
+    from datetime import date
+
+    today = date.today().isoformat()
+
+    customers = supabase.table("customers").select("*").execute().data or []
+
+    not_paid = []
+
+    for c in customers:
+        txn = supabase.table("transactions") \
+            .select("*") \
+            .eq("customer_id", c["customer_id"]) \
+            .eq("payment_date", today) \
+            .execute()
+
+        if not txn.data:
+            not_paid.append({
+                "customer_id": c["customer_id"],
+                "name": c["name"]
+            })
+
+    return not_paid
+
+def get_gaps_logic():
+    from datetime import date
+
+    today = date.today()
+
+    customers = supabase.table("customers").select("*").execute().data or []
+
+    gaps = []
+
+    for c in customers:
+        txn = supabase.table("transactions") \
+            .select("*") \
+            .eq("customer_id", c["customer_id"]) \
+            .execute()
+
+        transactions = txn.data or []
+
+        if not transactions:
+            gaps.append({
+                "customer_id": c["customer_id"],
+                "name": c["name"],
+                "last_paid": "Never"
+            })
+            continue
+
+        last_payment = max(
+            date.fromisoformat(t["payment_date"]) for t in transactions
+        )
+
+        gap_days = (today - last_payment).days
+
+        if gap_days > 1:
+            gaps.append({
+                "customer_id": c["customer_id"],
+                "name": c["name"],
+                "gap_days": gap_days,
+                "last_paid": str(last_payment)
+            })
+
+    return gaps
+@router.get("/dashboard")
+def get_dashboard():
+    try:
+        summary = get_daily_summary()
+        not_paid = get_not_paid_logic()
+        gaps = get_gaps_logic()
+
+        return {
+            "summary": summary,
+            "not_paid": not_paid,
+            "gaps": gaps
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
 
 
 
