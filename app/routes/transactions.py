@@ -152,20 +152,28 @@ def get_daily_summary():
 @router.delete("/delete/{customer_id}")
 def delete_customer(customer_id: int):
     try:
-        # delete transactions first (important)
+        # 🔍 Step 1: Find actual row using customer_id
+        customer = supabase.table("customers") \
+            .select("id") \
+            .eq("customer_id", customer_id) \
+            .execute()
+
+        if not customer.data:
+            return {"error": "Customer not found"}
+
+        actual_id = customer.data[0]["id"]
+
+        # 🧹 Step 2: Delete transactions
         supabase.table("transactions") \
             .delete() \
             .eq("customer_id", customer_id) \
             .execute()
 
-        # delete customer
+        # 🗑 Step 3: Delete customer using PRIMARY KEY
         res = supabase.table("customers") \
             .delete() \
-            .eq("customer_id", customer_id) \
+            .eq("id", actual_id) \
             .execute()
-
-        if not res.data:
-            return {"error": "Customer not found or already deleted"}
 
         return {"message": "Customer deleted successfully"}
 
