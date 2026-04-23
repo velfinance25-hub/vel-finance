@@ -3,6 +3,10 @@ import requests
 from datetime import date
 import time
 
+# ✅ MUST BE FIRST STREAMLIT CALL
+st.set_page_config(page_title="VEL Finance", layout="wide")
+
+# 🎨 UI STYLE
 st.markdown("""
 <style>
 .block-container {
@@ -24,13 +28,14 @@ st.markdown("""
 
 API_BASE = "https://vel-finance-api.onrender.com"
 
-# 🔥 ADD THIS (API warmup)
-try:
-    requests.get(f"{API_BASE}/health", timeout=3)
-except:
-    pass
+# 🔥 WARMUP
+def warmup():
+    try:
+        requests.get(f"{API_BASE}/health", timeout=5)
+    except:
+        pass
 
-st.set_page_config(page_title="VEL Finance", layout="wide")
+warmup()
 
 # ================= HELPERS =================
 @st.cache_data(ttl=30)
@@ -51,8 +56,7 @@ def is_online():
         return True
     except:
         return False
-
-
+    
 # ================= SIDEBAR =================
 page = st.sidebar.selectbox("Menu", [
     "Dashboard",
