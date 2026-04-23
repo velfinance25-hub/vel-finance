@@ -241,7 +241,7 @@ if page == "View Customer":
         st.write(f"📞 {data['phone']}")
         if st.button("🗑️ Delete Customer"):
             try:
-                res = requests.delete(f"{API_BASE}/customers/delete/{cid}")
+                res = requests.delete(f"{API_BASE}/transactions/delete/{cid}")
                 data = res.json()
 
                 if res.status_code == 200 and "message" in data:
