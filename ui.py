@@ -82,6 +82,7 @@ page = st.sidebar.selectbox("Menu", [
     "View Customer",
     "Add Customer",
     "Add Payment",
+    "Add Expense",
     "History"   # 👈 ADD THIS
 ])
 
