@@ -274,6 +274,7 @@ if page == "View Customer":
     if data:
         st.write(f"👤 {data['name']} | Balance: ₹{data['balance']}")
         st.write(f"📞 {data['phone']}")
+        st.write(f"📍 {data.get('address', '-')}")
         if st.button("🗑️ Delete Customer"):
             st.session_state["confirm_delete"] = True
 
