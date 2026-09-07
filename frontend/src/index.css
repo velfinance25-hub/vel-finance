@@ -108,6 +108,8 @@ body,
     background: #ffffff;
     page-break-after: always;
     break-after: page;
+    page-break-inside: avoid;
+    break-inside: avoid;
     overflow: hidden;
     /* prevent any stray content from widening the page */
   }
@@ -158,7 +160,7 @@ body,
   }
 
   .print-title {
-    font-size: 13pt;
+    font-size: 11pt;
     font-weight: 800;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -169,7 +171,7 @@ body,
   }
 
   .print-subtitle {
-    font-size: 8pt;
+    font-size: 6.5pt;
     font-weight: 600;
     letter-spacing: 0.07em;
     text-transform: uppercase;
@@ -178,8 +180,8 @@ body,
   }
 
   .print-date {
-    font-size: 7.5pt;
-    color: #444444;
+    font-size: 6pt;
+    color: #555555;
     margin-top: 0.4mm;
   }
 
@@ -196,7 +198,8 @@ body,
     align-items: flex-start;
     width: 100%;
     box-sizing: border-box;
-    overflow: hidden;
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 
   .print-table-wrap {
@@ -223,6 +226,8 @@ body,
     border: 1pt solid #333333;
     /* Prevent the table from ever exceeding the wrap container */
     max-width: 100%;
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 
   /* 10. Five-column widths — proportional, sum = 100 %
@@ -262,10 +267,10 @@ body,
   }
 
   .print-table th {
-    padding: 1.2mm 1.5mm;
-    font-size: 8pt;
+    padding: 1mm 1.5mm;
+    font-size: 6.5pt;
     font-weight: 700;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     color: #111111;
     border-bottom: 1pt solid #333333;
@@ -286,9 +291,9 @@ body,
   }
 
   .print-place-header-cell {
-    height: 5mm;
+    height: 4.5mm;
     padding: 0 2mm;
-    font-size: 8pt;
+    font-size: 6.5pt;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -300,7 +305,7 @@ body,
     print-color-adjust: exact;
   }
   /* 12. Customer data rows
-     Fixed height: 7.0 mm — comfortable for handwriting 3-5 digit numbers.
+     Fixed height: 6.0 mm — comfortable for handwriting 3-5 digit numbers.
      NOT stretched on sparse pages — rows keep their natural height.
 
      Border: 0.75 pt with #888 gray — minimum reliably rendered by all
@@ -312,9 +317,9 @@ body,
   }
 
   .print-table td {
-    height: 7mm;
+    height: 6mm;
     padding: 0 1.5mm;
-    font-size: 9.5pt;
+    font-size: 8pt;
     color: #111111;
     vertical-align: middle;
     border-bottom: 0.75pt solid #888888;
@@ -326,14 +331,14 @@ body,
   /* ID column: center-aligned, never truncate */
   .print-table td.col-id {
     text-align: center;
-    font-size: 9.5pt;
+    font-size: 8pt;
     font-weight: 700;
     white-space: nowrap;
   }
 
   /* Name column: truncate with ellipsis for very long names */
   .print-table td.col-name {
-    font-size: 9.5pt;
+    font-size: 8pt;
     font-weight: 600;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -343,7 +348,7 @@ body,
   /* Amount column: pre-filled for DL, center-aligned */
   .print-table td.col-amount {
     text-align: center;
-    font-size: 9.5pt;
+    font-size: 8pt;
     font-weight: 700;
     white-space: nowrap;
   }
@@ -352,7 +357,7 @@ body,
   .print-table td.col-extra,
   .print-table td.col-balance {
     text-align: left;
-    font-size: 9.5pt;
+    font-size: 8pt;
   }
 
   /* Remove right border on last column */

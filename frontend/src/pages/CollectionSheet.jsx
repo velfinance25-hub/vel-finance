@@ -45,21 +45,22 @@ function getDailyAmount(customer) {
 //   Printable height: 210 - 20 = 190 mm
 //
 // Vertical budget (190 mm):
-//   Header block (title + subtitle + date)    =  9.5 mm
-//   Table thead row                           =  5.5 mm
-//   Table outer borders (top + bottom)        =  0.5 mm
-//   Available for data rows                   = 174.5 mm
+//   Header block (title + subtitle + date)    =   9.5 mm
+//   Table thead row                           =   4.5 mm
+//   Table outer borders (top + bottom)        =   0.5 mm
+//   Safety buffer                             =  12.5 mm  (guarantees iOS Safari never overflows)
+//   Available for data rows                   = 163.0 mm
 //
-// Customer row:      7.0 mm height + 0.26 mm border = 7.26 mm pitch
-// Place header row:  4.5 mm height + 0.26 mm border = 4.76 mm pitch
-//   (place-header counts as 1 "row unit" for budget purposes, same as customer row)
+// Row height: 6.0 mm + 0.26 mm border = 6.26 mm pitch
+// Rows per half = floor(163.0 / 6.26) = 26
+// Items per page = 26 × 2 = 52
 //
-// Rows per half-table = floor(174.5 / 7.26) ≈ 24
-// This is intentionally conservative to ensure every row is comfortably readable.
+// Place header row: 4.5 mm height (shorter than customer row, giving even more safety)
 
-const AVAIL_ROW_MM  = 174.5;
-const ROW_PITCH_MM  = 7.26;
-const ROWS_PER_HALF = Math.floor(AVAIL_ROW_MM / ROW_PITCH_MM); // 24
+const AVAIL_ROW_MM   = 163.0;
+const ROW_PITCH_MM   = 6.26;
+const ROWS_PER_HALF  = Math.floor(AVAIL_ROW_MM / ROW_PITCH_MM); // 26
+const ITEMS_PER_PAGE = ROWS_PER_HALF * 2;                       // 52
 
 // ─── Row-stream builder ──────────────────────────────────────────────────────
 //
@@ -114,17 +115,18 @@ function buildRowStream(places, activeCustomers) {
 //
 // Splits the row stream into A4 pages, each with a left and right half-table.
 // Each half holds up to ROWS_PER_HALF row items (place-headers and customer rows).
+// Proven chunk-and-slice pattern matching the working pre-regression implementation.
 
 function paginateStream(stream) {
   const pages = [];
-  let remaining = [...stream];
-
-  while (remaining.length > 0) {
-    const leftRows  = remaining.splice(0, ROWS_PER_HALF);
-    const rightRows = remaining.splice(0, ROWS_PER_HALF);
-    pages.push({ left: leftRows, right: rightRows });
+  for (let i = 0; i < stream.length; i += ITEMS_PER_PAGE) {
+    const chunk = stream.slice(i, i + ITEMS_PER_PAGE);
+    const mid   = Math.min(chunk.length, ROWS_PER_HALF);
+    pages.push({
+      left:  chunk.slice(0, mid),
+      right: chunk.slice(mid),
+    });
   }
-
   return pages;
 }
 
@@ -316,22 +318,11 @@ function CollectionSheet() {
                 <img src={logoWatermark} alt="" className="print-watermark-img" />
               </div>
 
-              {/* Page header — only on the first page */}
-              {pageIdx === 0 && (
-                <div className="print-header">
-                  <div className="print-title">VEL FINANCE</div>
-                  <div className="print-subtitle">Daily Collection Sheet</div>
-                  <div className="print-date">Date: {displayDate}</div>
-                </div>
-              )}
-
-              {/* Continuation header for pages after the first */}
-              {pageIdx > 0 && (
-                <div className="print-header print-header-cont">
-                  <div className="print-title">VEL FINANCE</div>
-                  <div className="print-date">Date: {displayDate} &nbsp;(continued)</div>
-                </div>
-              )}
+              <div className="print-header">
+                <div className="print-title">VEL FINANCE</div>
+                <div className="print-subtitle">Daily Collection Sheet</div>
+                <div className="print-date">Date: {displayDate}</div>
+              </div>
 
               <div className="print-tables-row">
                 {/* LEFT TABLE */}
